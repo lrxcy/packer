@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/denverdino/aliyungo/common"
-	"github.com/denverdino/aliyungo/ecs"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
 )
@@ -25,9 +24,11 @@ func (s *stepPreValidate) Run(_ context.Context, state multistep.StateBag) multi
 	client := state.Get("client").(*ecs.Client)
 	config := state.Get("config").(*Config)
 	ui.Say("Prevalidating image name...")
-	images, _, err := client.DescribeImages(&ecs.DescribeImagesArgs{
-		ImageName: s.AlicloudDestImageName,
-		RegionId:  common.Region(config.AlicloudRegion)})
+	describeImagesReq := ecs.CreateDescribeImagesRequest()
+
+	describeImagesReq.RegionId = config.AlicloudRegion
+	describeImagesReq.ImageName = s.AlicloudDestImageName
+	images, err := client.DescribeImages(describeImagesReq)
 
 	if err != nil {
 		err := fmt.Errorf("Error querying alicloud image: %s", err)
@@ -35,9 +36,9 @@ func (s *stepPreValidate) Run(_ context.Context, state multistep.StateBag) multi
 		ui.Error(err.Error())
 		return multistep.ActionHalt
 	}
-
-	if len(images) > 0 {
-		err := fmt.Errorf("Error: name conflicts with an existing alicloud image: %s", images[0].ImageId)
+	image := images.Images.Image
+	if len(image) > 0 {
+		err := fmt.Errorf("Error: name conflicts with an existing alicloud image: %s", image[0].ImageId)
 		state.Put("error", err)
 		ui.Error(err.Error())
 		return multistep.ActionHalt
