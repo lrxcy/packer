@@ -277,7 +277,8 @@ func (p *PostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifact) (pac
 		}
 	}
 
-	err = packerecs.WaitForImageReady(alicloudRegion, importimage.ImageId, packerecs.ALICLOUD_DEFAULT_LONG_TIMEOUT)
+	waitForParam := packerecs.AlicloudAccessConfig{AlicloudRegion: alicloudRegion, WaitForImageId: importimage.ImageId}
+	err = packerecs.WaitForExpected(waitForParam.DescribeImages, waitForParam.EvaluatorImages, packerecs.ALICLOUD_DEFAULT_LONG_TIMEOUT)
 	// Add the reported Alicloud image ID to the artifact list
 	log.Printf("Importing created alicloud image ID %s in region %s Finished.", importimage.ImageId, p.config.AlicloudRegion)
 	artifact = &packerecs.Artifact{
