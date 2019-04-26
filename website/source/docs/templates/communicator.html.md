@@ -213,8 +213,7 @@ If you end up in this situation, you can use the template option
   "pause_before_connecting": "10m"
 }
 
-In this example, Packer will check whether it can connect, as normal. But once
-a connection attempt is successful, it will disconnect and then wait 10 minutes
-before connecting to the guest and beginning provisioning.
+In this example, Packer will wait 10 minutes before attempting to connect to
+the guest.
 
 

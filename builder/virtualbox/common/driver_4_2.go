@@ -2,8 +2,8 @@ package common
 
 import (
 	"bytes"
-	"context"
 	"fmt"
+	versionUtil "github.com/hashicorp/go-version"
 	"log"
 	"os/exec"
 	"regexp"
@@ -11,8 +11,7 @@ import (
 	"strings"
 	"time"
 
-	versionUtil "github.com/hashicorp/go-version"
-	"github.com/hashicorp/packer/common/retry"
+	packer "github.com/hashicorp/packer/common"
 )
 
 type VBox42Driver struct {
@@ -64,13 +63,14 @@ func (d *VBox42Driver) CreateSCSIController(vmName string, name string) error {
 }
 
 func (d *VBox42Driver) Delete(name string) error {
-	ctx := context.TODO()
-	return retry.Config{
-		Tries:      5,
-		RetryDelay: (&retry.Backoff{InitialBackoff: 1 * time.Second, MaxBackoff: 1 * time.Second, Multiplier: 2}).Linear,
-	}.Run(ctx, func(ctx context.Context) error {
-		err := d.VBoxManage("unregistervm", name, "--delete")
-		return err
+	return packer.Retry(1, 1, 5, func(i uint) (bool, error) {
+		if err := d.VBoxManage("unregistervm", name, "--delete"); err != nil {
+			if i+1 == 5 {
+				return false, err
+			}
+			return false, nil
+		}
+		return true, nil
 	})
 }
 

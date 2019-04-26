@@ -7,7 +7,6 @@
 /builder/amazon/ebsvolume/              @jen20
 /builder/azure/                         @paulmey
 /builder/hyperv/                        @taliesins
-/builder/linode/                        @displague @ctreatma @stvnjacobs
 /builder/lxc/                           @ChrisLundquist
 /builder/lxd/                           @ChrisLundquist
 /builder/oneandone/                     @jasmingacic
@@ -17,8 +16,6 @@
 /builder/ncloud/                        @YuSungDuk
 /builder/scaleway/                      @sieben @mvaude @jqueuniet @fflorens @brmzkw
 /builder/hcloud/                        @LKaemmerling
-/builder/hyperone                       @m110 @gregorybrzeski @ad-m
-/builder/yandex                         @GennadySpb @alexanderKhaustov @seukyaso
 
 # provisioners
 
@@ -26,7 +23,6 @@
 /provisioner/converge/                  @stevendborrelli
 
 # post-processors
-
 /post-processor/alicloud-import/        dongxiao.zzh@alibaba-inc.com
 /post-processor/checksum/               v.tolstov@selfip.ru
 /post-processor/googlecompute-export/   crunkleton@google.com

@@ -1,7 +1,6 @@
 package file
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -90,7 +89,7 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	return nil
 }
 
-func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.Communicator) error {
+func (p *Provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 	if p.config.Direction == "download" {
 		return p.ProvisionDownload(ui, comm)
 	} else {
@@ -126,6 +125,11 @@ func (p *Provisioner) ProvisionDownload(ui packer.Ui, comm packer.Communicator) 
 			return err
 		}
 		defer f.Close()
+
+		// Get a default progress bar
+		pb := packer.NoopProgressBar{}
+		pb.Start(0) // TODO: find size ? Remove ?
+		defer pb.Finish()
 
 		// Create MultiWriter for the current progress
 		pf := io.MultiWriter(f)
@@ -171,8 +175,13 @@ func (p *Provisioner) ProvisionUpload(ui packer.Ui, comm packer.Communicator) er
 			dst = dst + filepath.Base(src)
 		}
 
-		pf := ui.TrackProgress(filepath.Base(src), 0, info.Size(), f)
-		defer pf.Close()
+		// Get a default progress bar
+		bar := ui.ProgressBar()
+		bar.Start(info.Size())
+		defer bar.Finish()
+
+		// Create ProxyReader for the current progress
+		pf := bar.NewProxyReader(f)
 
 		// Upload the file
 		if err = comm.Upload(dst, pf, &fi); err != nil {
@@ -186,4 +195,10 @@ func (p *Provisioner) ProvisionUpload(ui packer.Ui, comm packer.Communicator) er
 		}
 	}
 	return nil
+}
+
+func (p *Provisioner) Cancel() {
+	// Just hard quit. It isn't a big deal if what we're doing keeps
+	// running on the other side.
+	os.Exit(0)
 }

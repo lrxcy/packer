@@ -6,7 +6,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/denverdino/aliyungo/common"
+	"github.com/denverdino/aliyungo/ecs"
 	"github.com/hashicorp/packer/helper/communicator"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
@@ -21,7 +22,7 @@ type stepConfigAlicloudKeyPair struct {
 	keyName string
 }
 
-func (s *stepConfigAlicloudKeyPair) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
+func (s *stepConfigAlicloudKeyPair) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packer.Ui)
 
 	if s.Comm.SSHPrivateKeyFile != "" {
@@ -33,6 +34,7 @@ func (s *stepConfigAlicloudKeyPair) Run(ctx context.Context, state multistep.Sta
 		}
 
 		s.Comm.SSHPrivateKey = privateKeyBytes
+
 		return multistep.ActionContinue
 	}
 
@@ -52,15 +54,16 @@ func (s *stepConfigAlicloudKeyPair) Run(ctx context.Context, state multistep.Sta
 		return multistep.ActionContinue
 	}
 
-	client := state.Get("client").(*ClientWrapper)
-	ui.Say(fmt.Sprintf("Creating temporary keypair: %s", s.Comm.SSHTemporaryKeyPairName))
+	client := state.Get("client").(*ecs.Client)
 
-	createKeyPairRequest := ecs.CreateCreateKeyPairRequest()
-	createKeyPairRequest.RegionId = s.RegionId
-	createKeyPairRequest.KeyPairName = s.Comm.SSHTemporaryKeyPairName
-	keyResp, err := client.CreateKeyPair(createKeyPairRequest)
+	ui.Say(fmt.Sprintf("Creating temporary keypair: %s", s.Comm.SSHTemporaryKeyPairName))
+	keyResp, err := client.CreateKeyPair(&ecs.CreateKeyPairArgs{
+		KeyPairName: s.Comm.SSHTemporaryKeyPairName,
+		RegionId:    common.Region(s.RegionId),
+	})
 	if err != nil {
-		return halt(state, err, "Error creating temporary keypair")
+		state.Put("error", fmt.Errorf("Error creating temporary keypair: %s", err))
+		return multistep.ActionHalt
 	}
 
 	// Set the keyname so we know to delete it later
@@ -107,16 +110,15 @@ func (s *stepConfigAlicloudKeyPair) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	client := state.Get("client").(*ClientWrapper)
+	client := state.Get("client").(*ecs.Client)
 	ui := state.Get("ui").(packer.Ui)
 
 	// Remove the keypair
 	ui.Say("Deleting temporary keypair...")
-
-	deleteKeyPairsRequest := ecs.CreateDeleteKeyPairsRequest()
-	deleteKeyPairsRequest.RegionId = s.RegionId
-	deleteKeyPairsRequest.KeyPairNames = fmt.Sprintf("[\"%s\"]", s.keyName)
-	_, err := client.DeleteKeyPairs(deleteKeyPairsRequest)
+	err := client.DeleteKeyPairs(&ecs.DeleteKeyPairsArgs{
+		RegionId:     common.Region(s.RegionId),
+		KeyPairNames: "[\"" + s.keyName + "\"]",
+	})
 	if err != nil {
 		ui.Error(fmt.Sprintf(
 			"Error cleaning up keypair. Please delete the key manually: %s", s.keyName))

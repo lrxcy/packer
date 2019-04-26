@@ -2,10 +2,8 @@ package packer
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -36,7 +34,7 @@ type MockCommunicator struct {
 	DownloadData   string
 }
 
-func (c *MockCommunicator) Start(ctx context.Context, rc *RemoteCmd) error {
+func (c *MockCommunicator) Start(rc *RemoteCmd) error {
 	c.StartCalled = true
 	c.StartCmd = rc
 
@@ -45,7 +43,7 @@ func (c *MockCommunicator) Start(ctx context.Context, rc *RemoteCmd) error {
 		if rc.Stdout != nil && c.StartStdout != "" {
 			wg.Add(1)
 			go func() {
-				io.Copy(rc.Stdout, strings.NewReader(c.StartStdout))
+				rc.Stdout.Write([]byte(c.StartStdout))
 				wg.Done()
 			}()
 		}
@@ -53,7 +51,7 @@ func (c *MockCommunicator) Start(ctx context.Context, rc *RemoteCmd) error {
 		if rc.Stderr != nil && c.StartStderr != "" {
 			wg.Add(1)
 			go func() {
-				io.Copy(rc.Stderr, strings.NewReader(c.StartStderr))
+				rc.Stderr.Write([]byte(c.StartStderr))
 				wg.Done()
 			}()
 		}

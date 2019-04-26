@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
+	"net"
 
-	"github.com/hashicorp/packer/common/net"
 	"github.com/hashicorp/packer/helper/communicator"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
@@ -22,14 +23,12 @@ import (
 // Produces:
 type StepForwardSSH struct {
 	CommConfig     *communicator.Config
-	HostPortMin    int
-	HostPortMax    int
+	HostPortMin    uint
+	HostPortMax    uint
 	SkipNatMapping bool
-
-	l *net.Listener
 }
 
-func (s *StepForwardSSH) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
+func (s *StepForwardSSH) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 	vmName := state.Get("vmName").(string)
@@ -46,21 +45,22 @@ func (s *StepForwardSSH) Run(ctx context.Context, state multistep.StateBag) mult
 		log.Printf("Looking for available communicator (SSH, WinRM, etc) port between %d and %d",
 			s.HostPortMin, s.HostPortMax)
 
-		var err error
-		s.l, err = net.ListenRangeConfig{
-			Addr:    "127.0.0.1",
-			Min:     s.HostPortMin,
-			Max:     s.HostPortMax,
-			Network: "tcp",
-		}.Listen(ctx)
-		if err != nil {
-			err := fmt.Errorf("Error creating port forwarding rule: %s", err)
-			state.Put("error", err)
-			ui.Error(err.Error())
-			return multistep.ActionHalt
+		portRange := int(s.HostPortMax - s.HostPortMin + 1)
+		offset := rand.Intn(portRange)
+
+		for {
+			sshHostPort = offset + int(s.HostPortMin)
+			log.Printf("Trying port: %d", sshHostPort)
+			l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", sshHostPort))
+			if err == nil {
+				defer l.Close()
+				break
+			}
+			offset++
+			if offset == portRange {
+				offset = 0
+			}
 		}
-		s.l.Listener.Close() // free port, but don't unlock lock file
-		sshHostPort = s.l.Port
 
 		// Create a forwarded port mapping to the VM
 		ui.Say(fmt.Sprintf("Creating forwarded port mapping for communicator (SSH, WinRM, etc) (host port %d)", sshHostPort))
@@ -83,11 +83,4 @@ func (s *StepForwardSSH) Run(ctx context.Context, state multistep.StateBag) mult
 	return multistep.ActionContinue
 }
 
-func (s *StepForwardSSH) Cleanup(state multistep.StateBag) {
-	if s.l != nil {
-		err := s.l.Close()
-		if err != nil {
-			log.Printf("failed to unlock port lockfile: %v", err)
-		}
-	}
-}
+func (s *StepForwardSSH) Cleanup(state multistep.StateBag) {}

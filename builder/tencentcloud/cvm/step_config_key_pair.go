@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"time"
+	"strings"
 
-	"github.com/hashicorp/packer/common/retry"
+	"github.com/hashicorp/packer/common"
 	"github.com/hashicorp/packer/helper/communicator"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
@@ -23,7 +23,7 @@ type stepConfigKeyPair struct {
 	keyID string
 }
 
-func (s *stepConfigKeyPair) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
+func (s *stepConfigKeyPair) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packer.Ui)
 
 	if s.Comm.SSHPrivateKeyFile != "" {
@@ -102,7 +102,6 @@ func (s *stepConfigKeyPair) Cleanup(state multistep.StateBag) {
 	if s.Comm.SSHPrivateKeyFile != "" || (s.Comm.SSHKeyPairName == "" && s.keyID == "") {
 		return
 	}
-	ctx := context.TODO()
 
 	client := state.Get("cvm_client").(*cvm.Client)
 	ui := state.Get("ui").(packer.Ui)
@@ -110,12 +109,16 @@ func (s *stepConfigKeyPair) Cleanup(state multistep.StateBag) {
 	ui.Say("Deleting temporary keypair...")
 	req := cvm.NewDeleteKeyPairsRequest()
 	req.KeyIds = []*string{&s.keyID}
-	err := retry.Config{
-		Tries:      60,
-		RetryDelay: (&retry.Backoff{InitialBackoff: 5 * time.Second, MaxBackoff: 5 * time.Second, Multiplier: 2}).Linear,
-	}.Run(ctx, func(ctx context.Context) error {
+	err := common.Retry(5, 5, 60, func(u uint) (bool, error) {
 		_, err := client.DeleteKeyPairs(req)
-		return err
+		if err == nil {
+			return true, nil
+		}
+		if strings.Index(err.Error(), "NotSupported") != -1 {
+			return false, nil
+		} else {
+			return false, err
+		}
 	})
 	if err != nil {
 		ui.Error(fmt.Sprintf(

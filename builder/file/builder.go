@@ -6,7 +6,6 @@ any virtualization or network resources, it's very fast and useful for testing.
 */
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,7 +33,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 }
 
 // Run is where the actual build should take place. It takes a Build and a Ui.
-func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
+func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packer.Artifact, error) {
 	artifact := new(FileArtifact)
 
 	if b.config.Source != "" {
@@ -68,11 +67,11 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 		artifact.filename = b.config.Target
 	}
 
-	if hook != nil {
-		if err := hook.Run(ctx, packer.HookProvision, ui, new(packer.MockCommunicator), nil); err != nil {
-			return nil, err
-		}
-	}
-
 	return artifact, nil
+}
+
+// Cancel cancels a possibly running Builder. This should block until
+// the builder actually cancels and cleans up after itself.
+func (b *Builder) Cancel() {
+	b.runner.Cancel()
 }

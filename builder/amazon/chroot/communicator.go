@@ -2,7 +2,6 @@ package chroot
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -24,7 +23,7 @@ type Communicator struct {
 	CmdWrapper CommandWrapper
 }
 
-func (c *Communicator) Start(ctx context.Context, cmd *packer.RemoteCmd) error {
+func (c *Communicator) Start(cmd *packer.RemoteCmd) error {
 	// need extra escapes for the command since we're wrapping it in quotes
 	cmd.Command = strconv.Quote(cmd.Command)
 	command, err := c.CmdWrapper(

@@ -1,7 +1,6 @@
 package googlecompute
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -16,7 +15,7 @@ import (
 
 	compute "google.golang.org/api/compute/v1"
 
-	"github.com/hashicorp/packer/common/retry"
+	"github.com/hashicorp/packer/common"
 	"github.com/hashicorp/packer/helper/useragent"
 	"github.com/hashicorp/packer/packer"
 
@@ -609,18 +608,14 @@ type stateRefreshFunc func() (string, error)
 // waitForState will spin in a loop forever waiting for state to
 // reach a certain target.
 func waitForState(errCh chan<- error, target string, refresh stateRefreshFunc) error {
-	ctx := context.TODO()
-	err := retry.Config{
-		RetryDelay: (&retry.Backoff{InitialBackoff: 2 * time.Second, MaxBackoff: 2 * time.Second, Multiplier: 2}).Linear,
-	}.Run(ctx, func(ctx context.Context) error {
+	err := common.Retry(2, 2, 0, func(_ uint) (bool, error) {
 		state, err := refresh()
 		if err != nil {
-			return err
+			return false, err
+		} else if state == target {
+			return true, nil
 		}
-		if state == target {
-			return nil
-		}
-		return fmt.Errorf("retrying for state %s, got %s", target, state)
+		return false, nil
 	})
 	errCh <- err
 	return err

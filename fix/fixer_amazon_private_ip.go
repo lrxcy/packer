@@ -1,7 +1,7 @@
 package fix
 
 import (
-	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -53,7 +53,8 @@ func (FixerAmazonPrivateIP) Fix(input map[string]interface{}) (map[string]interf
 			var err error
 			privateIP, err = strconv.ParseBool(privateIPi.(string))
 			if err != nil {
-				return nil, fmt.Errorf("ssh_private_ip is not a boolean, %s", err)
+				log.Fatalf("Wrong type for ssh_private_ip")
+				continue
 			}
 		}
 

@@ -22,7 +22,6 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/validation"
-	"github.com/Azure/go-autorest/tracing"
 	"net/http"
 )
 
@@ -47,31 +46,21 @@ func NewVirtualMachineScaleSetsClientWithBaseURI(baseURI string, subscriptionID 
 // VMScaleSetName - the name of the VM scale set to create or update.
 // parameters - the scale set object.
 func (client VirtualMachineScaleSetsClient) CreateOrUpdate(ctx context.Context, resourceGroupName string, VMScaleSetName string, parameters VirtualMachineScaleSet) (result VirtualMachineScaleSetsCreateOrUpdateFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.CreateOrUpdate")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	if err := validation.Validate([]validation.Validation{
 		{TargetValue: parameters,
 			Constraints: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties", Name: validation.Null, Rule: false,
 				Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy", Name: validation.Null, Rule: false,
 					Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy", Name: validation.Null, Rule: false,
 						Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxBatchInstancePercent", Name: validation.Null, Rule: false,
-							Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxBatchInstancePercent", Name: validation.InclusiveMaximum, Rule: int64(100), Chain: nil},
+							Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxBatchInstancePercent", Name: validation.InclusiveMaximum, Rule: 100, Chain: nil},
 								{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxBatchInstancePercent", Name: validation.InclusiveMinimum, Rule: 5, Chain: nil},
 							}},
 							{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyInstancePercent", Name: validation.Null, Rule: false,
-								Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyInstancePercent", Name: validation.InclusiveMaximum, Rule: int64(100), Chain: nil},
+								Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyInstancePercent", Name: validation.InclusiveMaximum, Rule: 100, Chain: nil},
 									{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyInstancePercent", Name: validation.InclusiveMinimum, Rule: 5, Chain: nil},
 								}},
 							{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyUpgradedInstancePercent", Name: validation.Null, Rule: false,
-								Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyUpgradedInstancePercent", Name: validation.InclusiveMaximum, Rule: int64(100), Chain: nil},
+								Chain: []validation.Constraint{{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyUpgradedInstancePercent", Name: validation.InclusiveMaximum, Rule: 100, Chain: nil},
 									{Target: "parameters.VirtualMachineScaleSetProperties.UpgradePolicy.RollingUpgradePolicy.MaxUnhealthyUpgradedInstancePercent", Name: validation.InclusiveMinimum, Rule: 0, Chain: nil},
 								}},
 						}},
@@ -103,7 +92,7 @@ func (client VirtualMachineScaleSetsClient) CreateOrUpdatePreparer(ctx context.C
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -124,6 +113,10 @@ func (client VirtualMachineScaleSetsClient) CreateOrUpdateSender(req *http.Reque
 	var resp *http.Response
 	resp, err = autorest.SendWithSender(client, req,
 		azure.DoRetryWithRegistration(client.Client))
+	if err != nil {
+		return
+	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated))
 	if err != nil {
 		return
 	}
@@ -151,16 +144,6 @@ func (client VirtualMachineScaleSetsClient) CreateOrUpdateResponder(resp *http.R
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) Deallocate(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsDeallocateFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Deallocate")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.DeallocatePreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Deallocate", nil, "Failure preparing request")
@@ -184,7 +167,7 @@ func (client VirtualMachineScaleSetsClient) DeallocatePreparer(ctx context.Conte
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -211,19 +194,24 @@ func (client VirtualMachineScaleSetsClient) DeallocateSender(req *http.Request) 
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // DeallocateResponder handles the response to the Deallocate request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) DeallocateResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) DeallocateResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -232,16 +220,6 @@ func (client VirtualMachineScaleSetsClient) DeallocateResponder(resp *http.Respo
 // resourceGroupName - the name of the resource group.
 // VMScaleSetName - the name of the VM scale set.
 func (client VirtualMachineScaleSetsClient) Delete(ctx context.Context, resourceGroupName string, VMScaleSetName string) (result VirtualMachineScaleSetsDeleteFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Delete")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.DeletePreparer(ctx, resourceGroupName, VMScaleSetName)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Delete", nil, "Failure preparing request")
@@ -265,7 +243,7 @@ func (client VirtualMachineScaleSetsClient) DeletePreparer(ctx context.Context, 
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -287,19 +265,24 @@ func (client VirtualMachineScaleSetsClient) DeleteSender(req *http.Request) (fut
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // DeleteResponder handles the response to the Delete request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) DeleteResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -309,16 +292,6 @@ func (client VirtualMachineScaleSetsClient) DeleteResponder(resp *http.Response)
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) DeleteInstances(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs VirtualMachineScaleSetVMInstanceRequiredIDs) (result VirtualMachineScaleSetsDeleteInstancesFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.DeleteInstances")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	if err := validation.Validate([]validation.Validation{
 		{TargetValue: VMInstanceIDs,
 			Constraints: []validation.Constraint{{Target: "VMInstanceIDs.InstanceIds", Name: validation.Null, Rule: true, Chain: nil}}}}); err != nil {
@@ -348,7 +321,7 @@ func (client VirtualMachineScaleSetsClient) DeleteInstancesPreparer(ctx context.
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -372,19 +345,24 @@ func (client VirtualMachineScaleSetsClient) DeleteInstancesSender(req *http.Requ
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // DeleteInstancesResponder handles the response to the DeleteInstances request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) DeleteInstancesResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) DeleteInstancesResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -395,16 +373,6 @@ func (client VirtualMachineScaleSetsClient) DeleteInstancesResponder(resp *http.
 // VMScaleSetName - the name of the VM scale set.
 // platformUpdateDomain - the platform update domain for which a manual recovery walk is requested
 func (client VirtualMachineScaleSetsClient) ForceRecoveryServiceFabricPlatformUpdateDomainWalk(ctx context.Context, resourceGroupName string, VMScaleSetName string, platformUpdateDomain int32) (result RecoveryWalkResponse, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.ForceRecoveryServiceFabricPlatformUpdateDomainWalk")
-		defer func() {
-			sc := -1
-			if result.Response.Response != nil {
-				sc = result.Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.ForceRecoveryServiceFabricPlatformUpdateDomainWalkPreparer(ctx, resourceGroupName, VMScaleSetName, platformUpdateDomain)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "ForceRecoveryServiceFabricPlatformUpdateDomainWalk", nil, "Failure preparing request")
@@ -434,7 +402,7 @@ func (client VirtualMachineScaleSetsClient) ForceRecoveryServiceFabricPlatformUp
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version":          APIVersion,
 		"platformUpdateDomain": autorest.Encode("query", platformUpdateDomain),
@@ -473,16 +441,6 @@ func (client VirtualMachineScaleSetsClient) ForceRecoveryServiceFabricPlatformUp
 // resourceGroupName - the name of the resource group.
 // VMScaleSetName - the name of the VM scale set.
 func (client VirtualMachineScaleSetsClient) Get(ctx context.Context, resourceGroupName string, VMScaleSetName string) (result VirtualMachineScaleSet, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Get")
-		defer func() {
-			sc := -1
-			if result.Response.Response != nil {
-				sc = result.Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.GetPreparer(ctx, resourceGroupName, VMScaleSetName)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Get", nil, "Failure preparing request")
@@ -512,7 +470,7 @@ func (client VirtualMachineScaleSetsClient) GetPreparer(ctx context.Context, res
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -550,16 +508,6 @@ func (client VirtualMachineScaleSetsClient) GetResponder(resp *http.Response) (r
 // resourceGroupName - the name of the resource group.
 // VMScaleSetName - the name of the VM scale set.
 func (client VirtualMachineScaleSetsClient) GetInstanceView(ctx context.Context, resourceGroupName string, VMScaleSetName string) (result VirtualMachineScaleSetInstanceView, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.GetInstanceView")
-		defer func() {
-			sc := -1
-			if result.Response.Response != nil {
-				sc = result.Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.GetInstanceViewPreparer(ctx, resourceGroupName, VMScaleSetName)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "GetInstanceView", nil, "Failure preparing request")
@@ -589,7 +537,7 @@ func (client VirtualMachineScaleSetsClient) GetInstanceViewPreparer(ctx context.
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -627,16 +575,6 @@ func (client VirtualMachineScaleSetsClient) GetInstanceViewResponder(resp *http.
 // resourceGroupName - the name of the resource group.
 // VMScaleSetName - the name of the VM scale set.
 func (client VirtualMachineScaleSetsClient) GetOSUpgradeHistory(ctx context.Context, resourceGroupName string, VMScaleSetName string) (result VirtualMachineScaleSetListOSUpgradeHistoryPage, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.GetOSUpgradeHistory")
-		defer func() {
-			sc := -1
-			if result.vmsslouh.Response.Response != nil {
-				sc = result.vmsslouh.Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.fn = client.getOSUpgradeHistoryNextResults
 	req, err := client.GetOSUpgradeHistoryPreparer(ctx, resourceGroupName, VMScaleSetName)
 	if err != nil {
@@ -667,7 +605,7 @@ func (client VirtualMachineScaleSetsClient) GetOSUpgradeHistoryPreparer(ctx cont
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -701,8 +639,8 @@ func (client VirtualMachineScaleSetsClient) GetOSUpgradeHistoryResponder(resp *h
 }
 
 // getOSUpgradeHistoryNextResults retrieves the next set of results, if any.
-func (client VirtualMachineScaleSetsClient) getOSUpgradeHistoryNextResults(ctx context.Context, lastResults VirtualMachineScaleSetListOSUpgradeHistory) (result VirtualMachineScaleSetListOSUpgradeHistory, err error) {
-	req, err := lastResults.virtualMachineScaleSetListOSUpgradeHistoryPreparer(ctx)
+func (client VirtualMachineScaleSetsClient) getOSUpgradeHistoryNextResults(lastResults VirtualMachineScaleSetListOSUpgradeHistory) (result VirtualMachineScaleSetListOSUpgradeHistory, err error) {
+	req, err := lastResults.virtualMachineScaleSetListOSUpgradeHistoryPreparer()
 	if err != nil {
 		return result, autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "getOSUpgradeHistoryNextResults", nil, "Failure preparing next results request")
 	}
@@ -723,16 +661,6 @@ func (client VirtualMachineScaleSetsClient) getOSUpgradeHistoryNextResults(ctx c
 
 // GetOSUpgradeHistoryComplete enumerates all values, automatically crossing page boundaries as required.
 func (client VirtualMachineScaleSetsClient) GetOSUpgradeHistoryComplete(ctx context.Context, resourceGroupName string, VMScaleSetName string) (result VirtualMachineScaleSetListOSUpgradeHistoryIterator, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.GetOSUpgradeHistory")
-		defer func() {
-			sc := -1
-			if result.Response().Response.Response != nil {
-				sc = result.page.Response().Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.page, err = client.GetOSUpgradeHistory(ctx, resourceGroupName, VMScaleSetName)
 	return
 }
@@ -741,16 +669,6 @@ func (client VirtualMachineScaleSetsClient) GetOSUpgradeHistoryComplete(ctx cont
 // Parameters:
 // resourceGroupName - the name of the resource group.
 func (client VirtualMachineScaleSetsClient) List(ctx context.Context, resourceGroupName string) (result VirtualMachineScaleSetListResultPage, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.List")
-		defer func() {
-			sc := -1
-			if result.vmsslr.Response.Response != nil {
-				sc = result.vmsslr.Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.fn = client.listNextResults
 	req, err := client.ListPreparer(ctx, resourceGroupName)
 	if err != nil {
@@ -780,7 +698,7 @@ func (client VirtualMachineScaleSetsClient) ListPreparer(ctx context.Context, re
 		"subscriptionId":    autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -814,8 +732,8 @@ func (client VirtualMachineScaleSetsClient) ListResponder(resp *http.Response) (
 }
 
 // listNextResults retrieves the next set of results, if any.
-func (client VirtualMachineScaleSetsClient) listNextResults(ctx context.Context, lastResults VirtualMachineScaleSetListResult) (result VirtualMachineScaleSetListResult, err error) {
-	req, err := lastResults.virtualMachineScaleSetListResultPreparer(ctx)
+func (client VirtualMachineScaleSetsClient) listNextResults(lastResults VirtualMachineScaleSetListResult) (result VirtualMachineScaleSetListResult, err error) {
+	req, err := lastResults.virtualMachineScaleSetListResultPreparer()
 	if err != nil {
 		return result, autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "listNextResults", nil, "Failure preparing next results request")
 	}
@@ -836,16 +754,6 @@ func (client VirtualMachineScaleSetsClient) listNextResults(ctx context.Context,
 
 // ListComplete enumerates all values, automatically crossing page boundaries as required.
 func (client VirtualMachineScaleSetsClient) ListComplete(ctx context.Context, resourceGroupName string) (result VirtualMachineScaleSetListResultIterator, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.List")
-		defer func() {
-			sc := -1
-			if result.Response().Response.Response != nil {
-				sc = result.page.Response().Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.page, err = client.List(ctx, resourceGroupName)
 	return
 }
@@ -854,16 +762,6 @@ func (client VirtualMachineScaleSetsClient) ListComplete(ctx context.Context, re
 // nextLink property in the response to get the next page of VM Scale Sets. Do this till nextLink is null to fetch all
 // the VM Scale Sets.
 func (client VirtualMachineScaleSetsClient) ListAll(ctx context.Context) (result VirtualMachineScaleSetListWithLinkResultPage, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.ListAll")
-		defer func() {
-			sc := -1
-			if result.vmsslwlr.Response.Response != nil {
-				sc = result.vmsslwlr.Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.fn = client.listAllNextResults
 	req, err := client.ListAllPreparer(ctx)
 	if err != nil {
@@ -892,7 +790,7 @@ func (client VirtualMachineScaleSetsClient) ListAllPreparer(ctx context.Context)
 		"subscriptionId": autorest.Encode("path", client.SubscriptionID),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -926,8 +824,8 @@ func (client VirtualMachineScaleSetsClient) ListAllResponder(resp *http.Response
 }
 
 // listAllNextResults retrieves the next set of results, if any.
-func (client VirtualMachineScaleSetsClient) listAllNextResults(ctx context.Context, lastResults VirtualMachineScaleSetListWithLinkResult) (result VirtualMachineScaleSetListWithLinkResult, err error) {
-	req, err := lastResults.virtualMachineScaleSetListWithLinkResultPreparer(ctx)
+func (client VirtualMachineScaleSetsClient) listAllNextResults(lastResults VirtualMachineScaleSetListWithLinkResult) (result VirtualMachineScaleSetListWithLinkResult, err error) {
+	req, err := lastResults.virtualMachineScaleSetListWithLinkResultPreparer()
 	if err != nil {
 		return result, autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "listAllNextResults", nil, "Failure preparing next results request")
 	}
@@ -948,16 +846,6 @@ func (client VirtualMachineScaleSetsClient) listAllNextResults(ctx context.Conte
 
 // ListAllComplete enumerates all values, automatically crossing page boundaries as required.
 func (client VirtualMachineScaleSetsClient) ListAllComplete(ctx context.Context) (result VirtualMachineScaleSetListWithLinkResultIterator, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.ListAll")
-		defer func() {
-			sc := -1
-			if result.Response().Response.Response != nil {
-				sc = result.page.Response().Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.page, err = client.ListAll(ctx)
 	return
 }
@@ -968,16 +856,6 @@ func (client VirtualMachineScaleSetsClient) ListAllComplete(ctx context.Context)
 // resourceGroupName - the name of the resource group.
 // VMScaleSetName - the name of the VM scale set.
 func (client VirtualMachineScaleSetsClient) ListSkus(ctx context.Context, resourceGroupName string, VMScaleSetName string) (result VirtualMachineScaleSetListSkusResultPage, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.ListSkus")
-		defer func() {
-			sc := -1
-			if result.vmsslsr.Response.Response != nil {
-				sc = result.vmsslsr.Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.fn = client.listSkusNextResults
 	req, err := client.ListSkusPreparer(ctx, resourceGroupName, VMScaleSetName)
 	if err != nil {
@@ -1008,7 +886,7 @@ func (client VirtualMachineScaleSetsClient) ListSkusPreparer(ctx context.Context
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1042,8 +920,8 @@ func (client VirtualMachineScaleSetsClient) ListSkusResponder(resp *http.Respons
 }
 
 // listSkusNextResults retrieves the next set of results, if any.
-func (client VirtualMachineScaleSetsClient) listSkusNextResults(ctx context.Context, lastResults VirtualMachineScaleSetListSkusResult) (result VirtualMachineScaleSetListSkusResult, err error) {
-	req, err := lastResults.virtualMachineScaleSetListSkusResultPreparer(ctx)
+func (client VirtualMachineScaleSetsClient) listSkusNextResults(lastResults VirtualMachineScaleSetListSkusResult) (result VirtualMachineScaleSetListSkusResult, err error) {
+	req, err := lastResults.virtualMachineScaleSetListSkusResultPreparer()
 	if err != nil {
 		return result, autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "listSkusNextResults", nil, "Failure preparing next results request")
 	}
@@ -1064,38 +942,16 @@ func (client VirtualMachineScaleSetsClient) listSkusNextResults(ctx context.Cont
 
 // ListSkusComplete enumerates all values, automatically crossing page boundaries as required.
 func (client VirtualMachineScaleSetsClient) ListSkusComplete(ctx context.Context, resourceGroupName string, VMScaleSetName string) (result VirtualMachineScaleSetListSkusResultIterator, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.ListSkus")
-		defer func() {
-			sc := -1
-			if result.Response().Response.Response != nil {
-				sc = result.page.Response().Response.Response.StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	result.page, err = client.ListSkus(ctx, resourceGroupName, VMScaleSetName)
 	return
 }
 
-// PerformMaintenance perform maintenance on one or more virtual machines in a VM scale set. Operation on instances
-// which are not eligible for perform maintenance will be failed. Please refer to best practices for more details:
-// https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-maintenance-notifications
+// PerformMaintenance perform maintenance on one or more virtual machines in a VM scale set.
 // Parameters:
 // resourceGroupName - the name of the resource group.
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) PerformMaintenance(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsPerformMaintenanceFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.PerformMaintenance")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.PerformMaintenancePreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "PerformMaintenance", nil, "Failure preparing request")
@@ -1119,7 +975,7 @@ func (client VirtualMachineScaleSetsClient) PerformMaintenancePreparer(ctx conte
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1146,19 +1002,24 @@ func (client VirtualMachineScaleSetsClient) PerformMaintenanceSender(req *http.R
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // PerformMaintenanceResponder handles the response to the PerformMaintenance request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) PerformMaintenanceResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) PerformMaintenanceResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -1169,16 +1030,6 @@ func (client VirtualMachineScaleSetsClient) PerformMaintenanceResponder(resp *ht
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) PowerOff(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsPowerOffFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.PowerOff")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.PowerOffPreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "PowerOff", nil, "Failure preparing request")
@@ -1202,7 +1053,7 @@ func (client VirtualMachineScaleSetsClient) PowerOffPreparer(ctx context.Context
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1229,19 +1080,24 @@ func (client VirtualMachineScaleSetsClient) PowerOffSender(req *http.Request) (f
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // PowerOffResponder handles the response to the PowerOff request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) PowerOffResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) PowerOffResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -1251,16 +1107,6 @@ func (client VirtualMachineScaleSetsClient) PowerOffResponder(resp *http.Respons
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) Redeploy(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsRedeployFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Redeploy")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.RedeployPreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Redeploy", nil, "Failure preparing request")
@@ -1284,7 +1130,7 @@ func (client VirtualMachineScaleSetsClient) RedeployPreparer(ctx context.Context
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1311,19 +1157,24 @@ func (client VirtualMachineScaleSetsClient) RedeploySender(req *http.Request) (f
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // RedeployResponder handles the response to the Redeploy request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) RedeployResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) RedeployResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -1333,16 +1184,6 @@ func (client VirtualMachineScaleSetsClient) RedeployResponder(resp *http.Respons
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) Reimage(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsReimageFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Reimage")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.ReimagePreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Reimage", nil, "Failure preparing request")
@@ -1366,7 +1207,7 @@ func (client VirtualMachineScaleSetsClient) ReimagePreparer(ctx context.Context,
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1393,19 +1234,24 @@ func (client VirtualMachineScaleSetsClient) ReimageSender(req *http.Request) (fu
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // ReimageResponder handles the response to the Reimage request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) ReimageResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) ReimageResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -1416,16 +1262,6 @@ func (client VirtualMachineScaleSetsClient) ReimageResponder(resp *http.Response
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) ReimageAll(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsReimageAllFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.ReimageAll")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.ReimageAllPreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "ReimageAll", nil, "Failure preparing request")
@@ -1449,7 +1285,7 @@ func (client VirtualMachineScaleSetsClient) ReimageAllPreparer(ctx context.Conte
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1476,19 +1312,24 @@ func (client VirtualMachineScaleSetsClient) ReimageAllSender(req *http.Request) 
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // ReimageAllResponder handles the response to the ReimageAll request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) ReimageAllResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) ReimageAllResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -1498,16 +1339,6 @@ func (client VirtualMachineScaleSetsClient) ReimageAllResponder(resp *http.Respo
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) Restart(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsRestartFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Restart")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.RestartPreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Restart", nil, "Failure preparing request")
@@ -1531,7 +1362,7 @@ func (client VirtualMachineScaleSetsClient) RestartPreparer(ctx context.Context,
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1558,19 +1389,24 @@ func (client VirtualMachineScaleSetsClient) RestartSender(req *http.Request) (fu
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // RestartResponder handles the response to the Restart request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) RestartResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) RestartResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -1580,16 +1416,6 @@ func (client VirtualMachineScaleSetsClient) RestartResponder(resp *http.Response
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) Start(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs) (result VirtualMachineScaleSetsStartFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Start")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.StartPreparer(ctx, resourceGroupName, VMScaleSetName, VMInstanceIDs)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Start", nil, "Failure preparing request")
@@ -1613,7 +1439,7 @@ func (client VirtualMachineScaleSetsClient) StartPreparer(ctx context.Context, r
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1640,19 +1466,24 @@ func (client VirtualMachineScaleSetsClient) StartSender(req *http.Request) (futu
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // StartResponder handles the response to the Start request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) StartResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) StartResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }
 
@@ -1662,16 +1493,6 @@ func (client VirtualMachineScaleSetsClient) StartResponder(resp *http.Response) 
 // VMScaleSetName - the name of the VM scale set to create or update.
 // parameters - the scale set object.
 func (client VirtualMachineScaleSetsClient) Update(ctx context.Context, resourceGroupName string, VMScaleSetName string, parameters VirtualMachineScaleSetUpdate) (result VirtualMachineScaleSetsUpdateFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.Update")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	req, err := client.UpdatePreparer(ctx, resourceGroupName, VMScaleSetName, parameters)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineScaleSetsClient", "Update", nil, "Failure preparing request")
@@ -1695,7 +1516,7 @@ func (client VirtualMachineScaleSetsClient) UpdatePreparer(ctx context.Context, 
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1716,6 +1537,10 @@ func (client VirtualMachineScaleSetsClient) UpdateSender(req *http.Request) (fut
 	var resp *http.Response
 	resp, err = autorest.SendWithSender(client, req,
 		azure.DoRetryWithRegistration(client.Client))
+	if err != nil {
+		return
+	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK))
 	if err != nil {
 		return
 	}
@@ -1742,16 +1567,6 @@ func (client VirtualMachineScaleSetsClient) UpdateResponder(resp *http.Response)
 // VMScaleSetName - the name of the VM scale set.
 // VMInstanceIDs - a list of virtual machine instance IDs from the VM scale set.
 func (client VirtualMachineScaleSetsClient) UpdateInstances(ctx context.Context, resourceGroupName string, VMScaleSetName string, VMInstanceIDs VirtualMachineScaleSetVMInstanceRequiredIDs) (result VirtualMachineScaleSetsUpdateInstancesFuture, err error) {
-	if tracing.IsEnabled() {
-		ctx = tracing.StartSpan(ctx, fqdn+"/VirtualMachineScaleSetsClient.UpdateInstances")
-		defer func() {
-			sc := -1
-			if result.Response() != nil {
-				sc = result.Response().StatusCode
-			}
-			tracing.EndSpan(ctx, sc, err)
-		}()
-	}
 	if err := validation.Validate([]validation.Validation{
 		{TargetValue: VMInstanceIDs,
 			Constraints: []validation.Constraint{{Target: "VMInstanceIDs.InstanceIds", Name: validation.Null, Rule: true, Chain: nil}}}}); err != nil {
@@ -1781,7 +1596,7 @@ func (client VirtualMachineScaleSetsClient) UpdateInstancesPreparer(ctx context.
 		"vmScaleSetName":    autorest.Encode("path", VMScaleSetName),
 	}
 
-	const APIVersion = "2018-04-01"
+	const APIVersion = "2017-12-01"
 	queryParameters := map[string]interface{}{
 		"api-version": APIVersion,
 	}
@@ -1805,18 +1620,23 @@ func (client VirtualMachineScaleSetsClient) UpdateInstancesSender(req *http.Requ
 	if err != nil {
 		return
 	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
 	future.Future, err = azure.NewFutureFromResponse(resp)
 	return
 }
 
 // UpdateInstancesResponder handles the response to the UpdateInstances request. The method always
 // closes the http.Response Body.
-func (client VirtualMachineScaleSetsClient) UpdateInstancesResponder(resp *http.Response) (result autorest.Response, err error) {
+func (client VirtualMachineScaleSetsClient) UpdateInstancesResponder(resp *http.Response) (result OperationStatusResponse, err error) {
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
-	result.Response = resp
+	result.Response = autorest.Response{Response: resp}
 	return
 }

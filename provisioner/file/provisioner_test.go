@@ -2,7 +2,6 @@ package file
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -127,7 +126,7 @@ func TestProvisionerProvision_SendsFile(t *testing.T) {
 		Writer: b,
 	}
 	comm := &packer.MockCommunicator{}
-	err = p.Provision(context.Background(), ui, comm)
+	err = p.Provision(ui, comm)
 	if err != nil {
 		t.Fatalf("should successfully provision: %s", err)
 	}

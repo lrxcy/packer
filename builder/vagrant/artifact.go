@@ -15,16 +15,14 @@ const BuilderId = "vagrant"
 type artifact struct {
 	OutputDir string
 	BoxName   string
-	Provider  string
 }
 
 // NewArtifact returns a vagrant artifact containing the .box file
-func NewArtifact(provider, dir string) packer.Artifact {
+func NewArtifact(dir string) (packer.Artifact, error) {
 	return &artifact{
 		OutputDir: dir,
 		BoxName:   "package.box",
-		Provider:  provider,
-	}
+	}, nil
 }
 
 func (*artifact) BuilderId() string {
@@ -32,15 +30,15 @@ func (*artifact) BuilderId() string {
 }
 
 func (a *artifact) Files() []string {
-	return []string{filepath.Join(a.OutputDir, a.BoxName)}
+	return []string{a.BoxName}
 }
 
 func (a *artifact) Id() string {
-	return a.Provider
+	return filepath.Join(a.OutputDir, a.BoxName)
 }
 
 func (a *artifact) String() string {
-	return fmt.Sprintf("Vagrant box '%s' for '%s' provider", a.BoxName, a.Provider)
+	return fmt.Sprintf("Vagrant box is %s", a.Id())
 }
 
 func (a *artifact) State(name string) interface{} {

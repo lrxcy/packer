@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/hashicorp/packer/common/retry"
+	retry "github.com/hashicorp/packer/common"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
 )
@@ -22,7 +21,7 @@ type StepPreValidate struct {
 	ForceDeregister bool
 }
 
-func (s *StepPreValidate) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
+func (s *StepPreValidate) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packer.Ui)
 
 	if accessConfig, ok := state.GetOk("access_config"); ok {
@@ -32,24 +31,21 @@ func (s *StepPreValidate) Run(ctx context.Context, state multistep.StateBag) mul
 			// time to become eventually-consistent
 			ui.Say("You're using Vault-generated AWS credentials. It may take a " +
 				"few moments for them to become available on AWS. Waiting...")
-			err := retry.Config{
-				Tries: 11,
-				ShouldRetry: func(err error) bool {
+			err := retry.Retry(0.2, 30, 11, func(_ uint) (bool, error) {
+				ec2conn, err := accessconf.NewEC2Connection()
+				if err != nil {
+					return true, err
+				}
+				_, err = listEC2Regions(ec2conn)
+				if err != nil {
 					if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "AuthFailure" {
 						log.Printf("Waiting for Vault-generated AWS credentials" +
 							" to pass authentication... trying again.")
-						return true
+						return false, nil
 					}
-					return false
-				},
-				RetryDelay: (&retry.Backoff{InitialBackoff: 200 * time.Millisecond, MaxBackoff: 30 * time.Second, Multiplier: 2}).Linear,
-			}.Run(ctx, func(ctx context.Context) error {
-				ec2conn, err := accessconf.NewEC2Connection()
-				if err != nil {
-					return err
+					return true, err
 				}
-				_, err = listEC2Regions(ec2conn)
-				return err
+				return true, nil
 			})
 
 			if err != nil {
@@ -94,7 +90,7 @@ func (s *StepPreValidate) Run(ctx context.Context, state multistep.StateBag) mul
 	}
 
 	if len(resp.Images) > 0 {
-		err := fmt.Errorf("Error: AMI Name: '%s' is used by an existing AMI: %s", *resp.Images[0].Name, *resp.Images[0].ImageId)
+		err := fmt.Errorf("Error: name conflicts with an existing AMI: %s", *resp.Images[0].ImageId)
 		state.Put("error", err)
 		ui.Error(err.Error())
 		return multistep.ActionHalt

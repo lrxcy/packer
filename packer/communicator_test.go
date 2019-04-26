@@ -2,70 +2,44 @@ package packer
 
 import (
 	"bytes"
-	"context"
-	"io"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/hashicorp/packer/common/iochan"
-	"golang.org/x/sync/errgroup"
 )
 
 func TestRemoteCmd_StartWithUi(t *testing.T) {
-	data := []string{
-		"hello",
-		"world",
-		"foo",
-		"there",
-	}
+	data := "hello\nworld\nthere"
 
-	originalOutputReader, originalOutputWriter := io.Pipe()
-	uilOutputReader, uilOutputWriter := io.Pipe()
+	originalOutput := new(bytes.Buffer)
+	uiOutput := new(bytes.Buffer)
 
 	testComm := new(MockCommunicator)
-	testComm.StartStdout = strings.Join(data, "\n") + "\n"
+	testComm.StartStdout = data
 	testUi := &BasicUi{
 		Reader: new(bytes.Buffer),
-		Writer: uilOutputWriter,
+		Writer: uiOutput,
 	}
 
 	rc := &RemoteCmd{
 		Command: "test",
-		Stdout:  originalOutputWriter,
-	}
-	ctx := context.TODO()
-
-	wg := errgroup.Group{}
-
-	testPrintFn := func(in io.Reader, expected []string) error {
-		i := 0
-		got := []string{}
-		for output := range iochan.LineReader(in) {
-			got = append(got, output)
-			i++
-			if i == len(expected) {
-				// here ideally the LineReader chan should be closed, but since
-				// the stream virtually has no ending we need to leave early.
-				break
-			}
-		}
-		if diff := cmp.Diff(got, expected); diff != "" {
-			t.Fatalf("bad output: %s", diff)
-		}
-		return nil
+		Stdout:  originalOutput,
 	}
 
-	wg.Go(func() error { return testPrintFn(uilOutputReader, data) })
-	wg.Go(func() error { return testPrintFn(originalOutputReader, data) })
-
-	err := rc.RunWithUi(ctx, testComm, testUi)
+	err := rc.StartWithUi(testComm, testUi)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
 
-	wg.Wait()
+	rc.Wait()
+
+	expected := strings.TrimSpace(data)
+	if strings.TrimSpace(uiOutput.String()) != expected {
+		t.Fatalf("bad output: '%s'", uiOutput.String())
+	}
+
+	if originalOutput.String() != expected {
+		t.Fatalf("bad: %#v", originalOutput.String())
+	}
 }
 
 func TestRemoteCmd_Wait(t *testing.T) {

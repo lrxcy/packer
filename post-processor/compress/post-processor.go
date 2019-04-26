@@ -3,7 +3,7 @@ package compress
 import (
 	"archive/tar"
 	"archive/zip"
-	"context"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -37,9 +37,10 @@ type Config struct {
 	common.PackerConfig `mapstructure:",squash"`
 
 	// Fields from config file
-	OutputPath       string `mapstructure:"output"`
-	Format           string `mapstructure:"format"`
-	CompressionLevel int    `mapstructure:"compression_level"`
+	OutputPath        string `mapstructure:"output"`
+	Format            string `mapstructure:"format"`
+	CompressionLevel  int    `mapstructure:"compression_level"`
+	KeepInputArtifact bool   `mapstructure:"keep_input_artifact"`
 
 	// Derived fields
 	Archive   string
@@ -99,7 +100,7 @@ func (p *PostProcessor) Configure(raws ...interface{}) error {
 	return nil
 }
 
-func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact packer.Artifact) (packer.Artifact, bool, bool, error) {
+func (p *PostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifact) (packer.Artifact, bool, error) {
 
 	// These are extra variables that will be made available for interpolation.
 	p.config.ctx.Data = map[string]string{
@@ -109,20 +110,21 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact 
 
 	target, err := interpolate.Render(p.config.OutputPath, &p.config.ctx)
 	if err != nil {
-		return nil, false, false, fmt.Errorf("Error interpolating output value: %s", err)
+		return nil, false, fmt.Errorf("Error interpolating output value: %s", err)
 	} else {
 		fmt.Println(target)
 	}
 
+	keep := p.config.KeepInputArtifact
 	newArtifact := &Artifact{Path: target}
 
 	if err = os.MkdirAll(filepath.Dir(target), os.FileMode(0755)); err != nil {
-		return nil, false, false, fmt.Errorf(
+		return nil, false, fmt.Errorf(
 			"Unable to create dir for archive %s: %s", target, err)
 	}
 	outputFile, err := os.Create(target)
 	if err != nil {
-		return nil, false, false, fmt.Errorf(
+		return nil, false, fmt.Errorf(
 			"Unable to create archive %s: %s", target, err)
 	}
 	defer outputFile.Close()
@@ -166,19 +168,19 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact 
 		ui.Say(fmt.Sprintf("Tarring %s with %s", target, compression))
 		err = createTarArchive(artifact.Files(), output)
 		if err != nil {
-			return nil, false, false, fmt.Errorf("Error creating tar: %s", err)
+			return nil, keep, fmt.Errorf("Error creating tar: %s", err)
 		}
 	case "zip":
 		ui.Say(fmt.Sprintf("Zipping %s", target))
 		err = createZipArchive(artifact.Files(), output)
 		if err != nil {
-			return nil, false, false, fmt.Errorf("Error creating zip: %s", err)
+			return nil, keep, fmt.Errorf("Error creating zip: %s", err)
 		}
 	default:
 		// Filename indicates no tarball (just compress) so we'll do an io.Copy
 		// into our compressor.
 		if len(artifact.Files()) != 1 {
-			return nil, false, false, fmt.Errorf(
+			return nil, keep, fmt.Errorf(
 				"Can only have 1 input file when not using tar/zip. Found %d "+
 					"files: %v", len(artifact.Files()), artifact.Files())
 		}
@@ -187,21 +189,21 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact 
 
 		source, err := os.Open(archiveFile)
 		if err != nil {
-			return nil, false, false, fmt.Errorf(
+			return nil, keep, fmt.Errorf(
 				"Failed to open source file %s for reading: %s",
 				archiveFile, err)
 		}
 		defer source.Close()
 
 		if _, err = io.Copy(output, source); err != nil {
-			return nil, false, false, fmt.Errorf("Failed to compress %s: %s",
+			return nil, keep, fmt.Errorf("Failed to compress %s: %s",
 				archiveFile, err)
 		}
 	}
 
 	ui.Say(fmt.Sprintf("Archive %s completed", target))
 
-	return newArtifact, false, false, nil
+	return newArtifact, keep, nil
 }
 
 func (config *Config) detectFromFilename() {
@@ -272,8 +274,8 @@ func makeBGZFWriter(output io.WriteCloser, compressionLevel int) (io.WriteCloser
 
 func makeLZ4Writer(output io.WriteCloser, compressionLevel int) (io.WriteCloser, error) {
 	lzwriter := lz4.NewWriter(output)
-	if compressionLevel > 0 {
-		lzwriter.Header.CompressionLevel = compressionLevel
+	if compressionLevel > gzip.DefaultCompression {
+		lzwriter.Header.HighCompression = true
 	}
 	return lzwriter, nil
 }

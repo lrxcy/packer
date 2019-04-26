@@ -44,5 +44,8 @@ type Step interface {
 // Runner is a thing that runs one or more steps.
 type Runner interface {
 	// Run runs the steps with the given initial state.
-	Run(context.Context, StateBag)
+	Run(StateBag)
+
+	// Cancel cancels a potentially running stack of steps.
+	Cancel()
 }

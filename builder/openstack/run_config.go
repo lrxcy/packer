@@ -31,7 +31,6 @@ type RunConfig struct {
 	UserDataFile       string            `mapstructure:"user_data_file"`
 	InstanceName       string            `mapstructure:"instance_name"`
 	InstanceMetadata   map[string]string `mapstructure:"instance_metadata"`
-	ForceDelete        bool              `mapstructure:"force_delete"`
 
 	ConfigDrive bool `mapstructure:"config_drive"`
 

@@ -2,7 +2,6 @@ package shell_local
 
 import (
 	"bytes"
-	"context"
 	"runtime"
 	"strings"
 	"testing"
@@ -29,15 +28,14 @@ func TestCommunicator(t *testing.T) {
 		Stdout: &buf,
 	}
 
-	ctx := context.Background()
-	if err := c.Start(ctx, cmd); err != nil {
+	if err := c.Start(cmd); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 
 	cmd.Wait()
 
-	if cmd.ExitStatus() != 0 {
-		t.Fatalf("err bad exit status: %d", cmd.ExitStatus())
+	if cmd.ExitStatus != 0 {
+		t.Fatalf("err bad exit status: %d", cmd.ExitStatus)
 	}
 
 	if strings.TrimSpace(buf.String()) != "foo" {

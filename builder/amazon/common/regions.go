@@ -19,10 +19,8 @@ func listEC2Regions(ec2conn ec2iface.EC2API) ([]string, error) {
 	return regions, nil
 }
 
-// ValidateRegion returns an nil if the regions are valid
-// and exists; otherwise an error.
-// ValidateRegion calls ec2conn.DescribeRegions to get the list of
-// regions available to this account.
+// ValidateRegion returns true if the supplied region is a valid AWS
+// region and false if it's not.
 func (c *AccessConfig) ValidateRegion(regions ...string) error {
 	ec2conn, err := c.NewEC2Connection()
 	if err != nil {
@@ -52,7 +50,7 @@ func (c *AccessConfig) ValidateRegion(regions ...string) error {
 	}
 
 	if len(invalidRegions) > 0 {
-		return fmt.Errorf("Invalid region(s): %v, available regions: %v", invalidRegions, validRegions)
+		return fmt.Errorf("Invalid region(s): %v", invalidRegions)
 	}
 	return nil
 }

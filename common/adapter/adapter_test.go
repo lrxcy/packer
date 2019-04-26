@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"context"
 	"errors"
 	"io"
 	"log"
@@ -96,7 +95,7 @@ func (a addr) String() string {
 
 type communicator struct{}
 
-func (c communicator) Start(context.Context, *packer.RemoteCmd) error {
+func (c communicator) Start(*packer.RemoteCmd) error {
 	return errors.New("communicator not supported")
 }
 

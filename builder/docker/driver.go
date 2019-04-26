@@ -46,10 +46,7 @@ type Driver interface {
 	// along with a potential error.
 	StartContainer(*ContainerConfig) (string, error)
 
-	// KillContainer forcibly stops a container.
-	KillContainer(id string) error
-
-	// StopContainer gently stops a container.
+	// StopContainer forcibly stops a container.
 	StopContainer(id string) error
 
 	// TagImage tags the image with the given ID

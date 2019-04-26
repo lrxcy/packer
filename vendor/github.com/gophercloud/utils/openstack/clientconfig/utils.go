@@ -128,13 +128,16 @@ func findAndReadYAML(yamlFile string) ([]byte, error) {
 	}
 
 	// unix user config directory: ~/.config/openstack.
-	if currentUser, err := user.Current(); err == nil {
-		homeDir := currentUser.HomeDir
-		if homeDir != "" {
-			filename := filepath.Join(homeDir, ".config/openstack/"+yamlFile)
-			if ok := fileExists(filename); ok {
-				return ioutil.ReadFile(filename)
-			}
+	currentUser, err := user.Current()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get current user: %s", err)
+	}
+
+	homeDir := currentUser.HomeDir
+	if homeDir != "" {
+		filename := filepath.Join(homeDir, ".config/openstack/"+yamlFile)
+		if ok := fileExists(filename); ok {
+			return ioutil.ReadFile(filename)
 		}
 	}
 

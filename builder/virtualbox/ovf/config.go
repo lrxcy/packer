@@ -2,7 +2,6 @@ package ovf
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	vboxcommon "github.com/hashicorp/packer/builder/virtualbox/common"
@@ -28,7 +27,6 @@ type Config struct {
 	vboxcommon.VBoxManageConfig     `mapstructure:",squash"`
 	vboxcommon.VBoxManagePostConfig `mapstructure:",squash"`
 	vboxcommon.VBoxVersionConfig    `mapstructure:",squash"`
-	vboxcommon.GuestAdditionsConfig `mapstructure:",squash"`
 
 	Checksum                string   `mapstructure:"checksum"`
 	ChecksumType            string   `mapstructure:"checksum_type"`
@@ -98,18 +96,23 @@ func NewConfig(raws ...interface{}) (*Config, []string, error) {
 	errs = packer.MultiErrorAppend(errs, c.VBoxManagePostConfig.Prepare(&c.ctx)...)
 	errs = packer.MultiErrorAppend(errs, c.VBoxVersionConfig.Prepare(&c.ctx)...)
 	errs = packer.MultiErrorAppend(errs, c.BootConfig.Prepare(&c.ctx)...)
-	errs = packer.MultiErrorAppend(errs, c.GuestAdditionsConfig.Prepare(&c.ctx)...)
 
 	c.ChecksumType = strings.ToLower(c.ChecksumType)
 	c.Checksum = strings.ToLower(c.Checksum)
 
 	if c.SourcePath == "" {
 		errs = packer.MultiErrorAppend(errs, fmt.Errorf("source_path is required"))
-	}
+	} else {
+		c.SourcePath, err = common.ValidatedURL(c.SourcePath)
+		if err != nil {
+			errs = packer.MultiErrorAppend(errs, fmt.Errorf("source_path is invalid: %s", err))
+		}
+		fileOK := common.FileExistsLocally(c.SourcePath)
+		if !fileOK {
+			packer.MultiErrorAppend(errs,
+				fmt.Errorf("Source file '%s' needs to exist at time of config validation!", c.SourcePath))
+		}
 
-	if _, err := os.Stat(c.SourcePath); err != nil {
-		packer.MultiErrorAppend(errs,
-			fmt.Errorf("Source file '%s' needs to exist at time of config validation! %v", c.SourcePath, err))
 	}
 
 	validMode := false

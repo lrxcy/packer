@@ -60,6 +60,13 @@ func (s *StepConnect) pause(pauseLen time.Duration, ctx context.Context) bool {
 func (s *StepConnect) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packer.Ui)
 
+	if s.Config.PauseBeforeConnect > 0 {
+		cancelled := s.pause(s.Config.PauseBeforeConnect, ctx)
+		if cancelled {
+			return multistep.ActionHalt
+		}
+	}
+
 	typeMap := map[string]multistep.Step{
 		"none": nil,
 		"ssh": &StepConnectSSH{
@@ -107,19 +114,7 @@ func (s *StepConnect) Run(ctx context.Context, state multistep.StateBag) multist
 	}
 
 	s.substep = step
-	action := s.substep.Run(ctx, state)
-	if action == multistep.ActionHalt {
-		return action
-	}
-
-	if s.Config.PauseBeforeConnect > 0 {
-		cancelled := s.pause(s.Config.PauseBeforeConnect, ctx)
-		if cancelled {
-			return multistep.ActionHalt
-		}
-	}
-
-	return multistep.ActionContinue
+	return s.substep.Run(ctx, state)
 }
 
 func (s *StepConnect) Cleanup(state multistep.StateBag) {

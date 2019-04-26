@@ -35,11 +35,9 @@ param([string]$switchName, [int]$addressIndex)
 
 $HostVMAdapter = Hyper-V\Get-VMNetworkAdapter -ManagementOS -SwitchName $switchName
 if ($HostVMAdapter){
-    $HostNetAdapter = Get-NetAdapter | ?{ $HostVMAdapter.DeviceId.Contains($_.DeviceID) }
+    $HostNetAdapter = Get-NetAdapter | ?{ $_.DeviceID -eq $HostVMAdapter.DeviceId }
     if ($HostNetAdapter){
-        $HostNetAdapterIfIndex = @()
-        $HostNetAdapterIfIndex +=  $HostNetAdapter.ifIndex
-        $HostNetAdapterConfiguration =  @(get-wmiobject win32_networkadapterconfiguration -filter "IPEnabled = 'TRUE'") | Where-Object { $HostNetAdapterIfIndex.Contains($_.InterfaceIndex) }
+        $HostNetAdapterConfiguration =  @(get-wmiobject win32_networkadapterconfiguration -filter "IPEnabled = 'TRUE' AND InterfaceIndex=$($HostNetAdapter.ifIndex)")
         if ($HostNetAdapterConfiguration){
             return @($HostNetAdapterConfiguration.IpAddress)[$addressIndex]
         }

@@ -2,7 +2,6 @@ package restart
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/packer/common"
-	"github.com/hashicorp/packer/common/retry"
 	"github.com/hashicorp/packer/helper/config"
 	"github.com/hashicorp/packer/packer"
 	"github.com/hashicorp/packer/template/interpolate"
@@ -94,7 +92,7 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	return nil
 }
 
-func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.Communicator) error {
+func (p *Provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 	p.cancelLock.Lock()
 	p.cancel = make(chan struct{})
 	p.cancelLock.Unlock()
@@ -105,23 +103,23 @@ func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.C
 
 	var cmd *packer.RemoteCmd
 	command := p.config.RestartCommand
-	err := retry.Config{StartTimeout: p.config.RestartTimeout}.Run(ctx, func(context.Context) error {
+	err := p.retryable(func() error {
 		cmd = &packer.RemoteCmd{Command: command}
-		return cmd.RunWithUi(ctx, comm, ui)
+		return cmd.StartWithUi(comm, ui)
 	})
 
 	if err != nil {
 		return err
 	}
 
-	if cmd.ExitStatus() != 0 && cmd.ExitStatus() != 1115 && cmd.ExitStatus() != 1190 {
-		return fmt.Errorf("Restart script exited with non-zero exit status: %d", cmd.ExitStatus())
+	if cmd.ExitStatus != 0 && cmd.ExitStatus != 1115 && cmd.ExitStatus != 1190 {
+		return fmt.Errorf("Restart script exited with non-zero exit status: %d", cmd.ExitStatus)
 	}
 
-	return waitForRestart(ctx, p, comm)
+	return waitForRestart(p, comm)
 }
 
-var waitForRestart = func(ctx context.Context, p *Provisioner, comm packer.Communicator) error {
+var waitForRestart = func(p *Provisioner, comm packer.Communicator) error {
 	ui := p.ui
 	ui.Say("Waiting for machine to restart...")
 	waitDone := make(chan bool, 1)
@@ -142,32 +140,32 @@ var waitForRestart = func(ctx context.Context, p *Provisioner, comm packer.Commu
 	for {
 		log.Printf("Check if machine is rebooting...")
 		cmd = &packer.RemoteCmd{Command: trycommand}
-		err = cmd.RunWithUi(ctx, comm, ui)
+		err = cmd.StartWithUi(comm, ui)
 		if err != nil {
 			// Couldn't execute, we assume machine is rebooting already
 			break
 		}
-		if cmd.ExitStatus() == 1 {
+		if cmd.ExitStatus == 1 {
 			// SSH provisioner, and we're already rebooting. SSH can reconnect
 			// without our help; exit this wait loop.
 			break
 		}
-		if cmd.ExitStatus() == 1115 || cmd.ExitStatus() == 1190 || cmd.ExitStatus() == 1717 {
+		if cmd.ExitStatus == 1115 || cmd.ExitStatus == 1190 || cmd.ExitStatus == 1717 {
 			// Reboot already in progress but not completed
 			log.Printf("Reboot already in progress, waiting...")
 			time.Sleep(10 * time.Second)
 		}
-		if cmd.ExitStatus() == 0 {
+		if cmd.ExitStatus == 0 {
 			// Cancel reboot we created to test if machine was already rebooting
 			cmd = &packer.RemoteCmd{Command: abortcommand}
-			cmd.RunWithUi(ctx, comm, ui)
+			cmd.StartWithUi(comm, ui)
 			break
 		}
 	}
 
 	go func() {
 		log.Printf("Waiting for machine to become available...")
-		err = waitForCommunicator(ctx, p)
+		err = waitForCommunicator(p)
 		waitDone <- true
 	}()
 
@@ -201,7 +199,7 @@ WaitLoop:
 
 }
 
-var waitForCommunicator = func(ctx context.Context, p *Provisioner) error {
+var waitForCommunicator = func(p *Provisioner) error {
 	runCustomRestartCheck := true
 	if p.config.RestartCheckCommand == DefaultRestartCheckCommand {
 		runCustomRestartCheck = false
@@ -215,14 +213,14 @@ var waitForCommunicator = func(ctx context.Context, p *Provisioner) error {
 		cmdRestartCheck.Command)
 	for {
 		select {
-		case <-ctx.Done():
+		case <-p.cancel:
 			log.Println("Communicator wait canceled, exiting loop")
 			return fmt.Errorf("Communicator wait canceled")
 		case <-time.After(retryableSleep):
 		}
 		if runCustomRestartCheck {
 			// run user-configured restart check
-			err := cmdRestartCheck.RunWithUi(ctx, p.comm, p.ui)
+			err := cmdRestartCheck.StartWithUi(p.comm, p.ui)
 			if err != nil {
 				log.Printf("Communication connection err: %s", err)
 				continue
@@ -244,7 +242,7 @@ var waitForCommunicator = func(ctx context.Context, p *Provisioner) error {
 		cmdModuleLoad.Stdout = &buf
 		cmdModuleLoad.Stdout = io.MultiWriter(cmdModuleLoad.Stdout, &buf2)
 
-		cmdModuleLoad.RunWithUi(ctx, p.comm, p.ui)
+		cmdModuleLoad.StartWithUi(p.comm, p.ui)
 		stdoutToRead := buf2.String()
 
 		if !strings.Contains(stdoutToRead, "restarted.") {
@@ -263,7 +261,7 @@ var waitForCommunicator = func(ctx context.Context, p *Provisioner) error {
 				cmdKeyCheck.Stdout = &buf
 				cmdKeyCheck.Stdout = io.MultiWriter(cmdKeyCheck.Stdout, &buf2)
 
-				err := p.comm.Start(ctx, cmdKeyCheck)
+				err := p.comm.Start(cmdKeyCheck)
 				if err != nil {
 					log.Printf("Communication connection err: %s", err)
 					shouldContinue = true
@@ -286,4 +284,40 @@ var waitForCommunicator = func(ctx context.Context, p *Provisioner) error {
 	}
 
 	return nil
+}
+
+func (p *Provisioner) Cancel() {
+	log.Printf("Received interrupt Cancel()")
+
+	p.cancelLock.Lock()
+	defer p.cancelLock.Unlock()
+	if p.cancel != nil {
+		close(p.cancel)
+	}
+}
+
+// retryable will retry the given function over and over until a
+// non-error is returned.
+func (p *Provisioner) retryable(f func() error) error {
+	startTimeout := time.After(p.config.RestartTimeout)
+	for {
+		var err error
+		if err = f(); err == nil {
+			return nil
+		}
+
+		// Create an error and log it
+		err = fmt.Errorf("Retryable error: %s", err)
+		log.Print(err.Error())
+
+		// Check if we timed out, otherwise we retry. It is safe to
+		// retry since the only error case above is if the command
+		// failed to START.
+		select {
+		case <-startTimeout:
+			return err
+		default:
+			time.Sleep(retryableSleep)
+		}
+	}
 }

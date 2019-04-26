@@ -1,19 +1,16 @@
 package packer
 
-import (
-	"context"
-)
-
 // MockProvisioner is an implementation of Provisioner that can be
 // used for tests.
 type MockProvisioner struct {
-	ProvFunc func(context.Context) error
+	ProvFunc func() error
 
 	PrepCalled       bool
 	PrepConfigs      []interface{}
 	ProvCalled       bool
 	ProvCommunicator Communicator
 	ProvUi           Ui
+	CancelCalled     bool
 }
 
 func (t *MockProvisioner) Prepare(configs ...interface{}) error {
@@ -22,7 +19,7 @@ func (t *MockProvisioner) Prepare(configs ...interface{}) error {
 	return nil
 }
 
-func (t *MockProvisioner) Provision(ctx context.Context, ui Ui, comm Communicator) error {
+func (t *MockProvisioner) Provision(ui Ui, comm Communicator) error {
 	t.ProvCalled = true
 	t.ProvCommunicator = comm
 	t.ProvUi = ui
@@ -31,7 +28,11 @@ func (t *MockProvisioner) Provision(ctx context.Context, ui Ui, comm Communicato
 		return nil
 	}
 
-	return t.ProvFunc(ctx)
+	return t.ProvFunc()
+}
+
+func (t *MockProvisioner) Cancel() {
+	t.CancelCalled = true
 }
 
 func (t *MockProvisioner) Communicator() Communicator {
