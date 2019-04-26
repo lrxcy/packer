@@ -3,7 +3,8 @@
 package ecs
 
 import (
-	"context"
+	"log"
+
 	"fmt"
 
 	"github.com/hashicorp/packer/common"
@@ -34,6 +35,8 @@ type Builder struct {
 type InstanceNetWork string
 
 const (
+	ClassicNet                     = InstanceNetWork("classic")
+	VpcNet                         = InstanceNetWork("vpc")
 	ALICLOUD_DEFAULT_SHORT_TIMEOUT = 180
 	ALICLOUD_DEFAULT_TIMEOUT       = 1800
 	ALICLOUD_DEFAULT_LONG_TIMEOUT  = 3600
@@ -73,7 +76,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	return nil, nil
 }
 
-func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
+func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packer.Artifact, error) {
 
 	client, err := b.config.Client()
 	if err != nil {
@@ -103,7 +106,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 			RegionId:     b.config.AlicloudRegion,
 		},
 	}
-	if b.chooseNetworkType() == InstanceNetworkVpc {
+	if b.chooseNetworkType() == VpcNet {
 		steps = append(steps,
 			&stepConfigAlicloudVPC{
 				VpcId:     b.config.VpcId,
@@ -134,7 +137,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 			InstanceName:            b.config.InstanceName,
 			ZoneId:                  b.config.ZoneId,
 		})
-	if b.chooseNetworkType() == InstanceNetworkVpc {
+	if b.chooseNetworkType() == VpcNet {
 		steps = append(steps, &stepConfigAlicloudEIP{
 			AssociatePublicIpAddress: b.config.AssociatePublicIpAddress,
 			RegionId:                 b.config.AlicloudRegion,
@@ -151,6 +154,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	steps = append(steps,
 		&stepAttachKeyPair{},
 		&stepRunAlicloudInstance{},
+		&stepMountAlicloudDisk{},
 		&communicator.StepConnect{
 			Config: &b.config.RunConfig.Comm,
 			Host: SSHHost(
@@ -201,7 +205,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Run!
 	b.runner = common.NewRunner(steps, b.config.PackerConfig, ui)
-	b.runner.Run(ctx, state)
+	b.runner.Run(state)
 
 	// If there was an error, return that
 	if rawErr, ok := state.GetOk("error"); ok {
@@ -223,11 +227,18 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	return artifact, nil
 }
 
+func (b *Builder) Cancel() {
+	if b.runner != nil {
+		log.Println("Cancelling the step runner...")
+		b.runner.Cancel()
+	}
+}
+
 func (b *Builder) chooseNetworkType() InstanceNetWork {
 	if b.isVpcNetRequired() {
-		return InstanceNetworkVpc
+		return VpcNet
 	} else {
-		return InstanceNetworkClassic
+		return ClassicNet
 	}
 }
 

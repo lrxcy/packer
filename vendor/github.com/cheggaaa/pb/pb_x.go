@@ -1,5 +1,5 @@
 // +build linux darwin freebsd netbsd openbsd solaris dragonfly
-// +build !appengine !js
+// +build !appengine
 
 package pb
 

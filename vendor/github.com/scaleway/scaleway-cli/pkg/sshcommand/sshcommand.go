@@ -51,7 +51,9 @@ func (c *Command) applyDefaults() {
 func (c *Command) Slice() []string {
 	c.applyDefaults()
 
-	slice := []string{"ssh"}
+	slice := []string{}
+
+	slice = append(slice, "ssh")
 
 	if c.EnableSSHKeyForwarding {
 		slice = append(slice, "-A")

@@ -9,6 +9,6 @@ func commHost(state multistep.StateBag) (string, error) {
 }
 
 func commPort(state multistep.StateBag) (int, error) {
-	sshHostPort := state.Get("sshHostPort").(int)
+	sshHostPort := state.Get("sshHostPort").(uint)
 	return int(sshHostPort), nil
 }

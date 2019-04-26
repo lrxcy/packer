@@ -24,11 +24,10 @@ type StepRunSourceServer struct {
 	ConfigDrive           bool
 	InstanceMetadata      map[string]string
 	UseBlockStorageVolume bool
-	ForceDelete           bool
 	server                *servers.Server
 }
 
-func (s *StepRunSourceServer) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
+func (s *StepRunSourceServer) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	config := state.Get("config").(*Config)
 	flavor := state.Get("flavor_id").(string)
 	sourceImage := state.Get("source_image").(string)
@@ -48,7 +47,7 @@ func (s *StepRunSourceServer) Run(ctx context.Context, state multistep.StateBag)
 		networks[i].Port = s.Ports[i]
 	}
 	for ; i < len(networks); i++ {
-		networks[i].UUID = s.Networks[i-len(s.Ports)]
+		networks[i].UUID = s.Networks[i]
 	}
 
 	userData := []byte(s.UserData)
@@ -158,16 +157,9 @@ func (s *StepRunSourceServer) Cleanup(state multistep.StateBag) {
 	}
 
 	ui.Say(fmt.Sprintf("Terminating the source server: %s ...", s.server.ID))
-	if config.ForceDelete {
-		if err := servers.ForceDelete(computeClient, s.server.ID).ExtractErr(); err != nil {
-			ui.Error(fmt.Sprintf("Error terminating server, may still be around: %s", err))
-			return
-		}
-	} else {
-		if err := servers.Delete(computeClient, s.server.ID).ExtractErr(); err != nil {
-			ui.Error(fmt.Sprintf("Error terminating server, may still be around: %s", err))
-			return
-		}
+	if err := servers.Delete(computeClient, s.server.ID).ExtractErr(); err != nil {
+		ui.Error(fmt.Sprintf("Error terminating server, may still be around: %s", err))
+		return
 	}
 
 	stateChange := StateChangeConf{

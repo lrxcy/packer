@@ -4,7 +4,6 @@ package ansible
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -246,13 +245,13 @@ func TestProvisionerPrepare_LocalPort(t *testing.T) {
 	config["ssh_authorized_key_file"] = publickey_file.Name()
 	config["playbook_file"] = playbook_file.Name()
 
-	config["local_port"] = 65537
+	config["local_port"] = uint(65537)
 	err = p.Prepare(config)
 	if err == nil {
 		t.Fatal("should have error")
 	}
 
-	config["local_port"] = 22222
+	config["local_port"] = uint(22222)
 	err = p.Prepare(config)
 	if err != nil {
 		t.Fatalf("err: %s", err)
@@ -349,7 +348,7 @@ func TestAnsibleLongMessages(t *testing.T) {
 		Writer: new(bytes.Buffer),
 	}
 
-	err = p.Provision(context.Background(), ui, comm)
+	err = p.Provision(ui, comm)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}

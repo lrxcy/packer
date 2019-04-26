@@ -20,11 +20,14 @@ type BasicRunner struct {
 	// modified.
 	Steps []Step
 
-	l     sync.Mutex
-	state runState
+	cancel context.CancelFunc
+	doneCh chan struct{}
+	state  runState
+	l      sync.Mutex
 }
 
-func (b *BasicRunner) Run(ctx context.Context, state StateBag) {
+func (b *BasicRunner) Run(state StateBag) {
+	ctx, cancel := context.WithCancel(context.Background())
 
 	b.l.Lock()
 	if b.state != stateIdle {
@@ -32,11 +35,15 @@ func (b *BasicRunner) Run(ctx context.Context, state StateBag) {
 	}
 
 	doneCh := make(chan struct{})
+	b.cancel = cancel
+	b.doneCh = doneCh
 	b.state = stateRunning
 	b.l.Unlock()
 
 	defer func() {
 		b.l.Lock()
+		b.cancel = nil
+		b.doneCh = nil
 		b.state = stateIdle
 		close(doneCh)
 		b.l.Unlock()
@@ -47,16 +54,14 @@ func (b *BasicRunner) Run(ctx context.Context, state StateBag) {
 	go func() {
 		select {
 		case <-ctx.Done():
+			// Flag cancel and wait for finish
 			state.Put(StateCancelled, true)
+			<-doneCh
 		case <-doneCh:
 		}
 	}()
 
 	for _, step := range b.Steps {
-		if err := ctx.Err(); err != nil {
-			state.Put(StateCancelled, true)
-			break
-		}
 		// We also check for cancellation here since we can't be sure
 		// the goroutine that is running to set it actually ran.
 		if runState(atomic.LoadInt32((*int32)(&b.state))) == stateCancelling {
@@ -75,5 +80,25 @@ func (b *BasicRunner) Run(ctx context.Context, state StateBag) {
 			state.Put(StateHalted, true)
 			break
 		}
+	}
+}
+
+func (b *BasicRunner) Cancel() {
+	b.l.Lock()
+	switch b.state {
+	case stateIdle:
+		// Not running, so Cancel is... done.
+		b.l.Unlock()
+		return
+	case stateRunning:
+		// Running, so mark that we cancelled and set the state
+		b.cancel()
+		b.state = stateCancelling
+		fallthrough
+	case stateCancelling:
+		// Already cancelling, so just wait until we're done
+		ch := b.doneCh
+		b.l.Unlock()
+		<-ch
 	}
 }

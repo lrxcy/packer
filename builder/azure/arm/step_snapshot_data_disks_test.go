@@ -3,10 +3,9 @@ package arm
 import (
 	"context"
 	"fmt"
-	"testing"
-
 	"github.com/hashicorp/packer/builder/azure/common/constants"
 	"github.com/hashicorp/packer/helper/multistep"
+	"testing"
 )
 
 func TestStepSnapshotDataDisksShouldFailIfSnapshotFails(t *testing.T) {

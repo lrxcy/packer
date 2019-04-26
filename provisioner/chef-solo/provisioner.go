@@ -5,7 +5,6 @@ package chefsolo
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -228,7 +227,7 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	return nil
 }
 
-func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.Communicator) error {
+func (p *Provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 	ui.Say("Provisioning with chef-solo")
 
 	if !p.config.SkipInstall {
@@ -298,6 +297,12 @@ func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.C
 	}
 
 	return nil
+}
+
+func (p *Provisioner) Cancel() {
+	// Just hard quit. It isn't a big deal if what we're doing keeps
+	// running on the other side.
+	os.Exit(0)
 }
 
 func (p *Provisioner) uploadDirectory(ui packer.Ui, comm packer.Communicator, dst string, src string) error {
@@ -410,22 +415,21 @@ func (p *Provisioner) createJson(ui packer.Ui, comm packer.Communicator) (string
 
 func (p *Provisioner) createDir(ui packer.Ui, comm packer.Communicator, dir string) error {
 	ui.Message(fmt.Sprintf("Creating directory: %s", dir))
-	ctx := context.TODO()
 
 	cmd := &packer.RemoteCmd{Command: p.guestCommands.CreateDir(dir)}
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return err
 	}
-	if cmd.ExitStatus() != 0 {
+	if cmd.ExitStatus != 0 {
 		return fmt.Errorf("Non-zero exit status. See output above for more info.")
 	}
 
 	// Chmod the directory to 0777 just so that we can access it as our user
 	cmd = &packer.RemoteCmd{Command: p.guestCommands.Chmod(dir, "0777")}
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return err
 	}
-	if cmd.ExitStatus() != 0 {
+	if cmd.ExitStatus != 0 {
 		return fmt.Errorf("Non-zero exit status. See output above for more info.")
 	}
 
@@ -448,13 +452,13 @@ func (p *Provisioner) executeChef(ui packer.Ui, comm packer.Communicator, config
 	cmd := &packer.RemoteCmd{
 		Command: command,
 	}
-	ctx := context.TODO()
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return err
 	}
 
-	if cmd.ExitStatus() != 0 {
-		return fmt.Errorf("Non-zero exit status: %d", cmd.ExitStatus())
+	if cmd.ExitStatus != 0 {
+		return fmt.Errorf("Non-zero exit status: %d", cmd.ExitStatus)
 	}
 
 	return nil
@@ -462,7 +466,6 @@ func (p *Provisioner) executeChef(ui packer.Ui, comm packer.Communicator, config
 
 func (p *Provisioner) installChef(ui packer.Ui, comm packer.Communicator, version string) error {
 	ui.Message("Installing Chef...")
-	ctx := context.TODO()
 
 	p.config.ctx.Data = &InstallChefTemplate{
 		Sudo:    !p.config.PreventSudo,
@@ -474,13 +477,13 @@ func (p *Provisioner) installChef(ui packer.Ui, comm packer.Communicator, versio
 	}
 
 	cmd := &packer.RemoteCmd{Command: command}
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return err
 	}
 
-	if cmd.ExitStatus() != 0 {
+	if cmd.ExitStatus != 0 {
 		return fmt.Errorf(
-			"Install script exited with non-zero exit status %d", cmd.ExitStatus())
+			"Install script exited with non-zero exit status %d", cmd.ExitStatus)
 	}
 
 	return nil

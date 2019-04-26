@@ -1,7 +1,6 @@
 package manifest
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -57,7 +56,7 @@ func (p *PostProcessor) Configure(raws ...interface{}) error {
 	return nil
 }
 
-func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, source packer.Artifact) (packer.Artifact, bool, bool, error) {
+func (p *PostProcessor) PostProcess(ui packer.Ui, source packer.Artifact) (packer.Artifact, bool, error) {
 	artifact := &Artifact{}
 
 	var err error
@@ -107,14 +106,14 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, source pa
 	// Read the current manifest file from disk
 	contents := []byte{}
 	if contents, err = ioutil.ReadFile(p.config.OutputPath); err != nil && !os.IsNotExist(err) {
-		return source, true, true, fmt.Errorf("Unable to open %s for reading: %s", p.config.OutputPath, err)
+		return source, true, fmt.Errorf("Unable to open %s for reading: %s", p.config.OutputPath, err)
 	}
 
 	// Parse the manifest file JSON, if we have one
 	manifestFile := &ManifestFile{}
 	if len(contents) > 0 {
 		if err = json.Unmarshal(contents, manifestFile); err != nil {
-			return source, true, true, fmt.Errorf("Unable to parse content from %s: %s", p.config.OutputPath, err)
+			return source, true, fmt.Errorf("Unable to parse content from %s: %s", p.config.OutputPath, err)
 		}
 	}
 
@@ -131,13 +130,11 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, source pa
 	// Write JSON to disk
 	if out, err := json.MarshalIndent(manifestFile, "", "  "); err == nil {
 		if err = ioutil.WriteFile(p.config.OutputPath, out, 0664); err != nil {
-			return source, true, true, fmt.Errorf("Unable to write %s: %s", p.config.OutputPath, err)
+			return source, true, fmt.Errorf("Unable to write %s: %s", p.config.OutputPath, err)
 		}
 	} else {
-		return source, true, true, fmt.Errorf("Unable to marshal JSON %s", err)
+		return source, true, fmt.Errorf("Unable to marshal JSON %s", err)
 	}
 
-	// The manifest should never delete the artifacts it is set to record, so it
-	// forcibly sets "keep" to true.
-	return source, true, true, nil
+	return source, true, nil
 }

@@ -167,12 +167,7 @@ func NewConfig(raws ...interface{}) (*Config, []string, error) {
 		}
 	}
 
-	if c.Format != "" {
-		if c.RemoteType != "esx5" {
-			errs = packer.MultiErrorAppend(errs,
-				fmt.Errorf("format is only valid when RemoteType=esx5"))
-		}
-	} else {
+	if c.Format == "" {
 		c.Format = "ovf"
 	}
 

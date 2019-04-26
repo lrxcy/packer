@@ -1,9 +1,9 @@
 package ovf
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	vboxcommon "github.com/hashicorp/packer/builder/virtualbox/common"
 	"github.com/hashicorp/packer/common"
@@ -32,7 +32,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 // Run executes a Packer build and returns a packer.Artifact representing
 // a VirtualBox appliance.
-func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
+func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packer.Artifact, error) {
 	// Create the driver that we'll use to communicate with VirtualBox
 	driver, err := vboxcommon.NewDriver()
 	if err != nil {
@@ -44,6 +44,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	state.Put("config", b.config)
 	state.Put("debug", b.config.PackerDebug)
 	state.Put("driver", driver)
+	state.Put("cache", cache)
 	state.Put("hook", hook)
 	state.Put("ui", ui)
 
@@ -62,11 +63,6 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 			HTTPDir:     b.config.HTTPDir,
 			HTTPPortMin: b.config.HTTPPortMin,
 			HTTPPortMax: b.config.HTTPPortMax,
-		},
-		&vboxcommon.StepSshKeyPair{
-			Debug:        b.config.PackerDebug,
-			DebugKeyPath: fmt.Sprintf("%s.pem", b.config.PackerBuildName),
-			Comm:         &b.config.Comm,
 		},
 		&vboxcommon.StepDownloadGuestAdditions{
 			GuestAdditionsMode:   b.config.GuestAdditionsMode,
@@ -116,7 +112,6 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 			VMName:        b.config.VMName,
 			Ctx:           b.config.ctx,
 			GroupInterval: b.config.BootConfig.BootGroupInterval,
-			Comm:          &b.config.Comm,
 		},
 		&communicator.StepConnect{
 			Config:    &b.config.SSHConfig.Comm,
@@ -160,7 +155,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Run the steps.
 	b.runner = common.NewRunnerWithPauseFn(steps, b.config.PackerConfig, ui, state)
-	b.runner.Run(ctx, state)
+	b.runner.Run(state)
 
 	// Report any errors.
 	if rawErr, ok := state.GetOk("error"); ok {
@@ -180,3 +175,9 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 }
 
 // Cancel.
+func (b *Builder) Cancel() {
+	if b.runner != nil {
+		log.Println("Cancelling the step runner...")
+		b.runner.Cancel()
+	}
+}

@@ -2,7 +2,6 @@ package adapter
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -234,15 +233,15 @@ func (c *Adapter) remoteExec(command string, in io.Reader, out io.Writer, err io
 		Stderr:  err,
 		Command: command,
 	}
-	ctx := context.TODO()
 
-	if err := c.comm.Start(ctx, cmd); err != nil {
+	if err := c.comm.Start(cmd); err != nil {
 		c.ui.Error(err.Error())
+		return cmd.ExitStatus
 	}
 
 	cmd.Wait()
 
-	return cmd.ExitStatus()
+	return cmd.ExitStatus
 }
 
 type envRequest struct {

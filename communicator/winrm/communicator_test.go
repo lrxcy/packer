@@ -2,7 +2,6 @@ package winrm
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"strings"
 	"testing"
@@ -78,8 +77,8 @@ func TestStart(t *testing.T) {
 	stdout := new(bytes.Buffer)
 	cmd.Command = "echo foo"
 	cmd.Stdout = stdout
-	ctx := context.Background()
-	err = c.Start(ctx, &cmd)
+
+	err = c.Start(&cmd)
 	if err != nil {
 		t.Fatalf("error executing remote command: %s", err)
 	}

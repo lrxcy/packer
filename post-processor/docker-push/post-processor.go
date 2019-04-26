@@ -1,15 +1,14 @@
 package dockerpush
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/hashicorp/packer/builder/docker"
 	"github.com/hashicorp/packer/common"
 	"github.com/hashicorp/packer/helper/config"
 	"github.com/hashicorp/packer/packer"
-	dockerimport "github.com/hashicorp/packer/post-processor/docker-import"
-	dockertag "github.com/hashicorp/packer/post-processor/docker-tag"
+	"github.com/hashicorp/packer/post-processor/docker-import"
+	"github.com/hashicorp/packer/post-processor/docker-tag"
 	"github.com/hashicorp/packer/template/interpolate"
 )
 
@@ -52,13 +51,13 @@ func (p *PostProcessor) Configure(raws ...interface{}) error {
 	return nil
 }
 
-func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact packer.Artifact) (packer.Artifact, bool, bool, error) {
+func (p *PostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifact) (packer.Artifact, bool, error) {
 	if artifact.BuilderId() != dockerimport.BuilderId &&
 		artifact.BuilderId() != dockertag.BuilderId {
 		err := fmt.Errorf(
 			"Unknown artifact type: %s\nCan only import from docker-import and docker-tag artifacts.",
 			artifact.BuilderId())
-		return nil, false, false, err
+		return nil, false, err
 	}
 
 	driver := p.Driver
@@ -72,7 +71,7 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact 
 
 		username, password, err := p.config.EcrGetLogin(p.config.LoginServer)
 		if err != nil {
-			return nil, false, false, err
+			return nil, false, err
 		}
 
 		p.config.LoginUsername = username
@@ -86,7 +85,7 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact 
 			p.config.LoginUsername,
 			p.config.LoginPassword)
 		if err != nil {
-			return nil, false, false, fmt.Errorf(
+			return nil, false, fmt.Errorf(
 				"Error logging in to Docker: %s", err)
 		}
 
@@ -103,7 +102,7 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact 
 
 	ui.Message("Pushing: " + name)
 	if err := driver.Push(name); err != nil {
-		return nil, false, false, err
+		return nil, false, err
 	}
 
 	artifact = &docker.ImportArtifact{
@@ -112,5 +111,5 @@ func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact 
 		IdValue:        name,
 	}
 
-	return artifact, true, false, nil
+	return artifact, true, nil
 }

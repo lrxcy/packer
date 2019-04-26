@@ -1,8 +1,6 @@
 package shell_local
 
 import (
-	"context"
-
 	sl "github.com/hashicorp/packer/common/shell-local"
 	"github.com/hashicorp/packer/packer"
 )
@@ -37,18 +35,14 @@ func (p *PostProcessor) Configure(raws ...interface{}) error {
 	return sl.Validate(&p.config)
 }
 
-func (p *PostProcessor) PostProcess(ctx context.Context, ui packer.Ui, artifact packer.Artifact) (packer.Artifact, bool, bool, error) {
+func (p *PostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifact) (packer.Artifact, bool, error) {
 	// this particular post-processor doesn't do anything with the artifact
 	// except to return it.
 
-	success, retErr := sl.Run(ctx, ui, &p.config)
-	if !success {
-		return nil, false, false, retErr
+	retBool, retErr := sl.Run(ui, &p.config)
+	if !retBool {
+		return nil, retBool, retErr
 	}
 
-	// Force shell-local pp to keep the input artifact, because otherwise we'll
-	// lose it instead of being able to pass it through. If oyu want to delete
-	// the input artifact for a shell local pp, use the artifice pp to create a
-	// new artifact
-	return artifact, true, true, retErr
+	return artifact, retBool, retErr
 }

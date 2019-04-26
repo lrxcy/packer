@@ -2,7 +2,7 @@
 description: |
     The file Packer builder is not really a builder, it just creates an artifact
     from a file. It can be used to debug post-processors without incurring high
-    wait times.
+    wait times. It does not run any provisioners.
 layout: docs
 page_title: 'File - Builders'
 sidebar_current: 'docs-builders-file'
@@ -14,7 +14,7 @@ Type: `file`
 
 The `file` Packer builder is not really a builder, it just creates an artifact
 from a file. It can be used to debug post-processors without incurring high
-wait times.
+wait times. It does not run any provisioners.
 
 ## Basic Example
 

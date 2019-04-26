@@ -3,11 +3,8 @@ package ecs
 import (
 	"context"
 	"fmt"
-	"strconv"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
-
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/denverdino/aliyungo/ecs"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
 )
@@ -17,27 +14,30 @@ type stepStopAlicloudInstance struct {
 	DisableStop bool
 }
 
-func (s *stepStopAlicloudInstance) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
-	client := state.Get("client").(*ClientWrapper)
-	instance := state.Get("instance").(*ecs.Instance)
+func (s *stepStopAlicloudInstance) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
+	client := state.Get("client").(*ecs.Client)
+	instance := state.Get("instance").(*ecs.InstanceAttributesType)
 	ui := state.Get("ui").(packer.Ui)
 
 	if !s.DisableStop {
 		ui.Say(fmt.Sprintf("Stopping instance: %s", instance.InstanceId))
-
-		stopInstanceRequest := ecs.CreateStopInstanceRequest()
-		stopInstanceRequest.InstanceId = instance.InstanceId
-		stopInstanceRequest.ForceStop = requests.Boolean(strconv.FormatBool(s.ForceStop))
-		if _, err := client.StopInstance(stopInstanceRequest); err != nil {
-			return halt(state, err, "Error stopping alicloud instance")
+		err := client.StopInstance(instance.InstanceId, s.ForceStop)
+		if err != nil {
+			err := fmt.Errorf("Error stopping alicloud instance: %s", err)
+			state.Put("error", err)
+			ui.Error(err.Error())
+			return multistep.ActionHalt
 		}
 	}
 
 	ui.Say(fmt.Sprintf("Waiting instance stopped: %s", instance.InstanceId))
 
-	_, err := client.WaitForInstanceStatus(instance.RegionId, instance.InstanceId, InstanceStatusStopped)
+	err := client.WaitForInstance(instance.InstanceId, ecs.Stopped, ALICLOUD_DEFAULT_TIMEOUT)
 	if err != nil {
-		return halt(state, err, "Error waiting for alicloud instance to stop")
+		err := fmt.Errorf("Error waiting for alicloud instance to stop: %s", err)
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return multistep.ActionHalt
 	}
 
 	return multistep.ActionContinue

@@ -1,7 +1,6 @@
 package multistep
 
 import (
-	"context"
 	"os"
 	"reflect"
 	"testing"
@@ -40,7 +39,7 @@ func TestDebugRunner_Run(t *testing.T) {
 		PauseFn: pauseFn,
 	}
 
-	r.Run(context.Background(), data)
+	r.Run(data)
 
 	// Test data
 	expected := []string{"a", "TestStepAcc", "b", "TestStepAcc"}
@@ -67,75 +66,53 @@ func TestDebugRunner_Run_Run(t *testing.T) {
 	stepWait := &TestStepWaitForever{}
 	r := &DebugRunner{Steps: []Step{stepInt, stepWait}}
 
-	go r.Run(context.Background(), new(BasicStateBag))
+	go r.Run(new(BasicStateBag))
 	// wait until really running
 	<-ch
 
 	// now try to run aain
-	r.Run(context.Background(), new(BasicStateBag))
+	r.Run(new(BasicStateBag))
 
 	// should not get here in nominal codepath
 	t.Errorf("Was able to run an already running DebugRunner")
 }
 
-type TestStepFn struct {
-	run     func(context.Context, StateBag) StepAction
-	cleanup func(StateBag)
-}
-
-var _ Step = TestStepFn{}
-
-func (fn TestStepFn) Run(ctx context.Context, sb StateBag) StepAction {
-	return fn.run(ctx, sb)
-}
-
-func (fn TestStepFn) Cleanup(sb StateBag) {
-	if fn.cleanup != nil {
-		fn.cleanup(sb)
-	}
-}
 func TestDebugRunner_Cancel(t *testing.T) {
-
-	topCtx, topCtxCancel := context.WithCancel(context.Background())
-
-	checkCancelled := func(data StateBag) {
-		cancelled := data.Get(StateCancelled).(bool)
-		if !cancelled {
-			t.Fatal("state should be cancelled")
-		}
-	}
-
+	ch := make(chan chan bool)
 	data := new(BasicStateBag)
+	stepA := &TestStepAcc{Data: "a"}
+	stepB := &TestStepAcc{Data: "b"}
+	stepInt := &TestStepSync{ch}
+	stepC := &TestStepAcc{Data: "c"}
+
 	r := &DebugRunner{}
-	r.Steps = []Step{
-		&TestStepAcc{Data: "a"},
-		&TestStepAcc{Data: "b"},
-		TestStepFn{
-			run: func(ctx context.Context, sb StateBag) StepAction {
-				return ActionContinue
-			},
-			cleanup: checkCancelled,
-		},
-		TestStepFn{
-			run: func(ctx context.Context, sb StateBag) StepAction {
-				topCtxCancel()
-				<-ctx.Done()
-				return ActionContinue
-			},
-			cleanup: checkCancelled,
-		},
-		TestStepFn{
-			run: func(context.Context, StateBag) StepAction {
-				t.Fatal("I should not be called")
-				return ActionContinue
-			},
-			cleanup: func(StateBag) {
-				t.Fatal("I should not be called")
-			},
-		},
+	r.Steps = []Step{stepA, stepB, stepInt, stepC}
+
+	// cancelling an idle Runner is a no-op
+	r.Cancel()
+
+	go r.Run(data)
+
+	// Wait until we reach the sync point
+	responseCh := <-ch
+
+	// Cancel then continue chain
+	cancelCh := make(chan bool)
+	go func() {
+		r.Cancel()
+		cancelCh <- true
+	}()
+
+	for {
+		if _, ok := data.GetOk(StateCancelled); ok {
+			responseCh <- true
+			break
+		}
+
+		time.Sleep(10 * time.Millisecond)
 	}
 
-	r.Run(topCtx, data)
+	<-cancelCh
 
 	// Test run data
 	expected := []string{"a", "b"}
@@ -152,11 +129,8 @@ func TestDebugRunner_Cancel(t *testing.T) {
 	}
 
 	// Test that it says it is cancelled
-	cancelled, ok := data.GetOk(StateCancelled)
-	if !ok {
-		t.Fatal("could not get state cancelled")
-	}
-	if !cancelled.(bool) {
+	cancelled := data.Get(StateCancelled).(bool)
+	if !cancelled {
 		t.Errorf("not cancelled")
 	}
 }
@@ -180,7 +154,7 @@ func TestDebugPauseDefault(t *testing.T) {
 		dr := &DebugRunner{Steps: []Step{
 			&TestStepAcc{Data: "a"},
 		}}
-		dr.Run(context.Background(), new(BasicStateBag))
+		dr.Run(new(BasicStateBag))
 		complete <- true
 	}()
 

@@ -2,7 +2,6 @@ package shell_local
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -28,7 +27,7 @@ type EnvVarsTemplate struct {
 	WinRMPassword string
 }
 
-func Run(ctx context.Context, ui packer.Ui, config *Config) (bool, error) {
+func Run(ui packer.Ui, config *Config) (bool, error) {
 	// Check if shell-local can even execute against this runtime OS
 	if len(config.OnlyOn) > 0 {
 		runCommand := false
@@ -55,15 +54,13 @@ func Run(ctx context.Context, ui packer.Ui, config *Config) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		scripts = append(scripts, tempScriptFileName)
 
 		// figure out what extension the file should have, and rename it.
 		if config.TempfileExtension != "" {
 			os.Rename(tempScriptFileName, fmt.Sprintf("%s.%s", tempScriptFileName, config.TempfileExtension))
 			tempScriptFileName = fmt.Sprintf("%s.%s", tempScriptFileName, config.TempfileExtension)
 		}
-
-		scripts = append(scripts, tempScriptFileName)
-
 		defer os.Remove(tempScriptFileName)
 	}
 
@@ -91,17 +88,17 @@ func Run(ctx context.Context, ui packer.Ui, config *Config) (bool, error) {
 		flattenedCmd := strings.Join(interpolatedCmds, " ")
 		cmd := &packer.RemoteCmd{Command: flattenedCmd}
 		log.Printf("[INFO] (shell-local): starting local command: %s", flattenedCmd)
-		if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+		if err := cmd.StartWithUi(comm, ui); err != nil {
 			return false, fmt.Errorf(
 				"Error executing script: %s\n\n"+
 					"Please see output above for more information.",
 				script)
 		}
-		if cmd.ExitStatus() != 0 {
+		if cmd.ExitStatus != 0 {
 			return false, fmt.Errorf(
 				"Erroneous exit code %d while executing script: %s\n\n"+
 					"Please see output above for more information.",
-				cmd.ExitStatus(),
+				cmd.ExitStatus,
 				script)
 		}
 	}

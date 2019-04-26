@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -146,12 +145,13 @@ func Test(t TestT, c TestCase) {
 	// Run it! We use a temporary directory for caching and discard
 	// any UI output. We discard since it shows up in logs anyways.
 	log.Printf("[DEBUG] Running 'test' build")
+	cache := &packer.FileCache{CacheDir: os.TempDir()}
 	ui := &packer.BasicUi{
 		Reader:      os.Stdin,
 		Writer:      ioutil.Discard,
 		ErrorWriter: ioutil.Discard,
 	}
-	artifacts, err := build.Run(context.Background(), ui)
+	artifacts, err := build.Run(ui, cache)
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Run error:\n\n%s", err))
 		goto TEARDOWN

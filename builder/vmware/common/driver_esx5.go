@@ -3,7 +3,6 @@ package common
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -31,7 +30,7 @@ type ESX5Driver struct {
 	base VmwareDriver
 
 	Host           string
-	Port           int
+	Port           uint
 	Username       string
 	Password       string
 	PrivateKeyFile string
@@ -69,7 +68,7 @@ func (d *ESX5Driver) Clone(dst, src string, linked bool) error {
 		return fmt.Errorf("Failed to copy the vmx file %s: %s", srcVmx, err)
 	}
 
-	filesToClone, err := d.run(nil, "find", strconv.Quote(srcDir), "! -name '*.vmdk' ! -name '*.vmx' ! -name '*.vmxf' -type f ! -size 0")
+	filesToClone, err := d.run(nil, "find", strconv.Quote(srcDir), "! -name '*.vmdk' ! -name '*.vmx' -type f ! -size 0")
 	if err != nil {
 		return fmt.Errorf("Failed to get the file list to copy: %s", err)
 	}
@@ -360,8 +359,8 @@ func (d *ESX5Driver) GuestAddress(multistep.StateBag) (string, error) {
 	return result, nil
 }
 
-func (d *ESX5Driver) VNCAddress(ctx context.Context, _ string, portMin, portMax int) (string, int, error) {
-	var vncPort int
+func (d *ESX5Driver) VNCAddress(_ string, portMin, portMax uint) (string, uint, error) {
+	var vncPort uint
 
 	//Process ports ESXi is listening on to determine which are available
 	//This process does best effort to detect ports that are unavailable,
@@ -427,7 +426,7 @@ func (d *ESX5Driver) VNCAddress(ctx context.Context, _ string, portMin, portMax 
 }
 
 // UpdateVMX, adds the VNC port to the VMX data.
-func (ESX5Driver) UpdateVMX(_, password string, port int, data map[string]string) {
+func (ESX5Driver) UpdateVMX(_, password string, port uint, data map[string]string) {
 	// Do not set remotedisplay.vnc.ip - this breaks ESXi.
 	data["remotedisplay.vnc.enabled"] = "TRUE"
 	data["remotedisplay.vnc.port"] = fmt.Sprintf("%d", port)
@@ -687,7 +686,6 @@ func (d *ESX5Driver) VerifyChecksum(ctype string, hash string, file string) bool
 }
 
 func (d *ESX5Driver) ssh(command string, stdin io.Reader) (*bytes.Buffer, error) {
-	ctx := context.TODO()
 	var stdout, stderr bytes.Buffer
 
 	cmd := &packer.RemoteCmd{
@@ -697,14 +695,14 @@ func (d *ESX5Driver) ssh(command string, stdin io.Reader) (*bytes.Buffer, error)
 		Stdin:   stdin,
 	}
 
-	err := d.comm.Start(ctx, cmd)
+	err := d.comm.Start(cmd)
 	if err != nil {
 		return nil, err
 	}
 
 	cmd.Wait()
 
-	if cmd.ExitStatus() != 0 {
+	if cmd.ExitStatus != 0 {
 		err = fmt.Errorf("'%s'\n\nStdout: %s\n\nStderr: %s",
 			cmd.Command, stdout.String(), stderr.String())
 		return nil, err

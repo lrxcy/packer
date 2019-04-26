@@ -1,7 +1,6 @@
 package iso
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -69,7 +68,7 @@ type Config struct {
 
 	// The size, in megabytes, of the computer memory in the VM.
 	// By default, this is 1024 (about 1 GB).
-	RamSize uint `mapstructure:"memory"`
+	RamSize uint `mapstructure:"ram_size"`
 
 	//
 	SecondaryDvdImages []string `mapstructure:"secondary_iso_images"`
@@ -88,7 +87,7 @@ type Config struct {
 	SwitchVlanId                   string `mapstructure:"switch_vlan_id"`
 	MacAddress                     string `mapstructure:"mac_address"`
 	VlanId                         string `mapstructure:"vlan_id"`
-	Cpu                            uint   `mapstructure:"cpus"`
+	Cpu                            uint   `mapstructure:"cpu"`
 	Generation                     uint   `mapstructure:"generation"`
 	EnableMacSpoofing              bool   `mapstructure:"enable_mac_spoofing"`
 	UseLegacyNetworkAdapter        bool   `mapstructure:"use_legacy_network_adapter"`
@@ -98,7 +97,6 @@ type Config struct {
 	EnableVirtualizationExtensions bool   `mapstructure:"enable_virtualization_extensions"`
 	TempPath                       string `mapstructure:"temp_path"`
 	Version                        string `mapstructure:"configuration_version"`
-	KeepRegistered                 bool   `mapstructure:"keep_registered"`
 
 	Communicator string `mapstructure:"communicator"`
 
@@ -358,7 +356,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 // Run executes a Packer build and returns a packer.Artifact representing
 // a Hyperv appliance.
-func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
+func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packer.Artifact, error) {
 	// Create the driver that we'll use to communicate with Hyperv
 	driver, err := hypervcommon.NewHypervPS4Driver()
 	if err != nil {
@@ -367,6 +365,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Set up the state.
 	state := new(multistep.BasicStateBag)
+	state.Put("cache", cache)
 	state.Put("config", &b.config)
 	state.Put("debug", b.config.PackerDebug)
 	state.Put("driver", driver)
@@ -421,7 +420,6 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 			MacAddress:                     b.config.MacAddress,
 			FixedVHD:                       b.config.FixedVHD,
 			Version:                        b.config.Version,
-			KeepRegistered:                 b.config.KeepRegistered,
 		},
 		&hypervcommon.StepEnableIntegrationService{},
 
@@ -508,7 +506,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Run the steps.
 	b.runner = common.NewRunner(steps, b.config.PackerConfig, ui)
-	b.runner.Run(ctx, state)
+	b.runner.Run(state)
 
 	// Report any errors.
 	if rawErr, ok := state.GetOk("error"); ok {
@@ -528,6 +526,12 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 }
 
 // Cancel.
+func (b *Builder) Cancel() {
+	if b.runner != nil {
+		log.Println("Cancelling the step runner...")
+		b.runner.Cancel()
+	}
+}
 
 func appendWarnings(slice []string, data ...string) []string {
 	m := len(slice)
@@ -590,10 +594,10 @@ func (b *Builder) checkRamSize() error {
 	log.Println(fmt.Sprintf("%s: %v", "RamSize", b.config.RamSize))
 
 	if b.config.RamSize < MinRamSize {
-		return fmt.Errorf("memory: Virtual machine requires memory size >= %v MB, but defined: %v",
+		return fmt.Errorf("ram_size: Virtual machine requires memory size >= %v MB, but defined: %v",
 			MinRamSize, b.config.RamSize)
 	} else if b.config.RamSize > MaxRamSize {
-		return fmt.Errorf("memory: Virtual machine requires memory size <= %v MB, but defined: %v",
+		return fmt.Errorf("ram_size: Virtual machine requires memory size <= %v MB, but defined: %v",
 			MaxRamSize, b.config.RamSize)
 	}
 

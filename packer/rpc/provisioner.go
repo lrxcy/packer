@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"context"
 	"log"
 	"net/rpc"
 
@@ -18,9 +17,6 @@ type provisioner struct {
 // ProvisionerServer wraps a packer.Provisioner implementation and makes it
 // exportable as part of a Golang RPC server.
 type ProvisionerServer struct {
-	context       context.Context
-	contextCancel func()
-
 	p   packer.Provisioner
 	mux *muxBroker
 }
@@ -38,28 +34,21 @@ func (p *provisioner) Prepare(configs ...interface{}) (err error) {
 	return
 }
 
-func (p *provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.Communicator) error {
+func (p *provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 	nextId := p.mux.NextId()
 	server := newServerWithMux(p.mux, nextId)
 	server.RegisterCommunicator(comm)
 	server.RegisterUi(ui)
 	go server.Serve()
 
-	done := make(chan interface{})
-	defer close(done)
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			log.Printf("Cancelling provisioner after context cancellation %v", ctx.Err())
-			if err := p.client.Call("Provisioner.Cancel", new(interface{}), new(interface{})); err != nil {
-				log.Printf("Error cancelling provisioner: %s", err)
-			}
-		case <-done:
-		}
-	}()
-
 	return p.client.Call("Provisioner.Provision", nextId, new(interface{}))
+}
+
+func (p *provisioner) Cancel() {
+	err := p.client.Call("Provisioner.Cancel", new(interface{}), new(interface{}))
+	if err != nil {
+		log.Printf("Provisioner.Cancel err: %s", err)
+	}
 }
 
 func (p *ProvisionerServer) Prepare(args *ProvisionerPrepareArgs, reply *interface{}) error {
@@ -73,11 +62,7 @@ func (p *ProvisionerServer) Provision(streamId uint32, reply *interface{}) error
 	}
 	defer client.Close()
 
-	if p.context == nil {
-		p.context, p.contextCancel = context.WithCancel(context.Background())
-	}
-
-	if err := p.p.Provision(p.context, client.Ui(), client.Communicator()); err != nil {
+	if err := p.p.Provision(client.Ui(), client.Communicator()); err != nil {
 		return NewBasicError(err)
 	}
 
@@ -85,6 +70,6 @@ func (p *ProvisionerServer) Provision(streamId uint32, reply *interface{}) error
 }
 
 func (p *ProvisionerServer) Cancel(args *interface{}, reply *interface{}) error {
-	p.contextCancel()
+	p.p.Cancel()
 	return nil
 }

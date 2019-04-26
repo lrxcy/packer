@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/denverdino/aliyungo/common"
+	"github.com/denverdino/aliyungo/ecs"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
 )
@@ -18,7 +19,7 @@ type stepDeleteAlicloudImageSnapshots struct {
 	AlicloudImageDestinationNames     []string
 }
 
-func (s *stepDeleteAlicloudImageSnapshots) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
+func (s *stepDeleteAlicloudImageSnapshots) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	config := state.Get("config").(*Config)
 
 	// Check for force delete
@@ -53,15 +54,13 @@ func (s *stepDeleteAlicloudImageSnapshots) Run(ctx context.Context, state multis
 }
 
 func (s *stepDeleteAlicloudImageSnapshots) deleteImageAndSnapshots(state multistep.StateBag, imageName string, region string) error {
-	client := state.Get("client").(*ClientWrapper)
+	client := state.Get("client").(*ecs.Client)
 	ui := state.Get("ui").(packer.Ui)
 
-	describeImagesRequest := ecs.CreateDescribeImagesRequest()
-	describeImagesRequest.RegionId = region
-	describeImagesRequest.ImageName = imageName
-	describeImagesRequest.Status = ImageStatusQueried
-	imageResponse, _ := client.DescribeImages(describeImagesRequest)
-	images := imageResponse.Images.Image
+	images, _, err := client.DescribeImages(&ecs.DescribeImagesArgs{
+		RegionId:  common.Region(region),
+		ImageName: imageName,
+	})
 	if len(images) < 1 {
 		return nil
 	}
@@ -69,24 +68,20 @@ func (s *stepDeleteAlicloudImageSnapshots) deleteImageAndSnapshots(state multist
 	ui.Say(fmt.Sprintf("Deleting duplicated image and snapshot in %s: %s", region, imageName))
 
 	for _, image := range images {
-		if image.ImageOwnerAlias != ImageOwnerSelf {
+		if image.ImageOwnerAlias != string(ecs.ImageOwnerSelf) {
 			log.Printf("You can not delete non-customized images: %s ", image.ImageId)
 			continue
 		}
 
-		deleteImageRequest := ecs.CreateDeleteImageRequest()
-		deleteImageRequest.RegionId = region
-		deleteImageRequest.ImageId = image.ImageId
-		if _, err := client.DeleteImage(deleteImageRequest); err != nil {
+		err = client.DeleteImage(common.Region(region), image.ImageId)
+		if err != nil {
 			err := fmt.Errorf("Failed to delete image: %s", err)
 			return err
 		}
 
 		if s.AlicloudImageForceDeleteSnapshots {
 			for _, diskDevice := range image.DiskDeviceMappings.DiskDeviceMapping {
-				deleteSnapshotRequest := ecs.CreateDeleteSnapshotRequest()
-				deleteSnapshotRequest.SnapshotId = diskDevice.SnapshotId
-				if _, err := client.DeleteSnapshot(deleteSnapshotRequest); err != nil {
+				if err := client.DeleteSnapshot(diskDevice.SnapshotId); err != nil {
 					err := fmt.Errorf("Deleting ECS snapshot failed: %s", err)
 					return err
 				}

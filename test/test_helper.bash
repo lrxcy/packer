@@ -1,13 +1,11 @@
 # Let's verify that the tools we need are installed
-verify_aws_cli() {
-    declare -a required=(aws)
-    for cmd in "${required[@]}"; do
-        command -v $cmd >/dev/null 2>&1 || {
-            echo "'$cmd' must be installed" >&2
-            exit 1
-        }
-    done
-}
+declare -a required=(aws)
+for cmd in "${required[@]}"; do
+    command -v $cmd >/dev/null 2>&1 || {
+        echo "'$cmd' must be installed" >&2
+        exit 1
+    }
+done
 
 #--------------------------------------------------------------------
 # Bats modification

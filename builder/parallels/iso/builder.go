@@ -1,9 +1,9 @@
 package iso
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	parallelscommon "github.com/hashicorp/packer/builder/parallels/common"
 	"github.com/hashicorp/packer/common"
@@ -141,7 +141,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	return warnings, nil
 }
 
-func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
+func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packer.Artifact, error) {
 	// Create the driver that we'll use to communicate with Parallels
 	driver, err := parallelscommon.NewDriver()
 	if err != nil {
@@ -229,6 +229,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Setup the state bag
 	state := new(multistep.BasicStateBag)
+	state.Put("cache", cache)
 	state.Put("config", &b.config)
 	state.Put("debug", b.config.PackerDebug)
 	state.Put("driver", driver)
@@ -237,7 +238,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Run
 	b.runner = common.NewRunnerWithPauseFn(steps, b.config.PackerConfig, ui, state)
-	b.runner.Run(ctx, state)
+	b.runner.Run(state)
 
 	// If there was an error, return that
 	if rawErr, ok := state.GetOk("error"); ok {
@@ -254,4 +255,11 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	}
 
 	return parallelscommon.NewArtifact(b.config.OutputDir)
+}
+
+func (b *Builder) Cancel() {
+	if b.runner != nil {
+		log.Println("Cancelling the step runner...")
+		b.runner.Cancel()
+	}
 }

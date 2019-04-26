@@ -4,7 +4,6 @@
 package puppetmasterless
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -257,7 +256,7 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	return nil
 }
 
-func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.Communicator) error {
+func (p *Provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 	ui.Say("Provisioning with Puppet...")
 	p.communicator = comm
 	ui.Message("Creating Puppet staging directory...")
@@ -348,12 +347,12 @@ func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.C
 	}
 
 	ui.Message(fmt.Sprintf("Running Puppet: %s", command))
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return fmt.Errorf("Got an error starting command: %s", err)
 	}
 
-	if cmd.ExitStatus() != 0 && cmd.ExitStatus() != 2 && !p.config.IgnoreExitCodes {
-		return fmt.Errorf("Puppet exited with a non-zero exit status: %d", cmd.ExitStatus())
+	if cmd.ExitStatus != 0 && cmd.ExitStatus != 2 && !p.config.IgnoreExitCodes {
+		return fmt.Errorf("Puppet exited with a non-zero exit status: %d", cmd.ExitStatus)
 	}
 
 	if p.config.CleanStagingDir {
@@ -363,6 +362,12 @@ func (p *Provisioner) Provision(ctx context.Context, ui packer.Ui, comm packer.C
 	}
 
 	return nil
+}
+
+func (p *Provisioner) Cancel() {
+	// Just hard quit. It isn't a big deal if what we're doing keeps
+	// running on the other side.
+	os.Exit(0)
 }
 
 func (p *Provisioner) uploadHieraConfig(ui packer.Ui, comm packer.Communicator) (string, error) {
@@ -431,22 +436,21 @@ func (p *Provisioner) createDir(ui packer.Ui, comm packer.Communicator, dir stri
 	ui.Message(fmt.Sprintf("Creating directory: %s", dir))
 
 	cmd := &packer.RemoteCmd{Command: p.guestCommands.CreateDir(dir)}
-	ctx := context.TODO()
 
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return err
 	}
 
-	if cmd.ExitStatus() != 0 {
+	if cmd.ExitStatus != 0 {
 		return fmt.Errorf("Non-zero exit status.")
 	}
 
 	// Chmod the directory to 0777 just so that we can access it as our user
 	cmd = &packer.RemoteCmd{Command: p.guestCommands.Chmod(dir, "0777")}
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return err
 	}
-	if cmd.ExitStatus() != 0 {
+	if cmd.ExitStatus != 0 {
 		return fmt.Errorf("Non-zero exit status. See output above for more info.")
 	}
 
@@ -454,14 +458,12 @@ func (p *Provisioner) createDir(ui packer.Ui, comm packer.Communicator, dir stri
 }
 
 func (p *Provisioner) removeDir(ui packer.Ui, comm packer.Communicator, dir string) error {
-	ctx := context.TODO()
-
 	cmd := &packer.RemoteCmd{Command: p.guestCommands.RemoveDir(dir)}
-	if err := cmd.RunWithUi(ctx, comm, ui); err != nil {
+	if err := cmd.StartWithUi(comm, ui); err != nil {
 		return err
 	}
 
-	if cmd.ExitStatus() != 0 {
+	if cmd.ExitStatus != 0 {
 		return fmt.Errorf("Non-zero exit status.")
 	}
 

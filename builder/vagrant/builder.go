@@ -1,10 +1,9 @@
 package vagrant
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -124,9 +123,14 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 			errs = packer.MultiErrorAppend(errs, fmt.Errorf("You may either set global_id or source_path but not both"))
 		}
 		if strings.HasSuffix(b.config.SourceBox, ".box") {
-			if _, err := os.Stat(b.config.SourceBox); err != nil {
-				packer.MultiErrorAppend(errs,
-					fmt.Errorf("Source box '%s' needs to exist at time of config validation! %v", b.config.SourceBox, err))
+			b.config.SourceBox, err = common.ValidatedURL(b.config.SourceBox)
+			if err != nil {
+				errs = packer.MultiErrorAppend(errs, fmt.Errorf("source_path is invalid: %s", err))
+			}
+			fileOK := common.FileExistsLocally(b.config.SourceBox)
+			if !fileOK {
+				errs = packer.MultiErrorAppend(errs,
+					fmt.Errorf("Source file '%s' needs to exist at time of config validation!", b.config.SourceBox))
 			}
 		}
 	}
@@ -162,7 +166,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 // Run executes a Packer build and returns a packer.Artifact representing
 // a VirtualBox appliance.
-func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
+func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packer.Artifact, error) {
 	// Create the driver that we'll use to communicate with VirtualBox
 	VagrantCWD, err := filepath.Abs(b.config.OutputDir)
 	if err != nil {
@@ -178,6 +182,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	state.Put("config", b.config)
 	state.Put("debug", b.config.PackerDebug)
 	state.Put("driver", driver)
+	state.Put("cache", cache)
 	state.Put("hook", hook)
 	state.Put("ui", ui)
 
@@ -243,7 +248,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Run the steps.
 	b.runner = common.NewRunnerWithPauseFn(steps, b.config.PackerConfig, ui, state)
-	b.runner.Run(ctx, state)
+	b.runner.Run(state)
 
 	// Report any errors.
 	if rawErr, ok := state.GetOk("error"); ok {
@@ -259,7 +264,13 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 		return nil, errors.New("Build was halted.")
 	}
 
-	return NewArtifact(b.config.Provider, b.config.OutputDir), nil
+	return NewArtifact(b.config.OutputDir)
 }
 
 // Cancel.
+func (b *Builder) Cancel() {
+	if b.runner != nil {
+		log.Println("Cancelling the step runner...")
+		b.runner.Cancel()
+	}
+}

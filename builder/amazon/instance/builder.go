@@ -3,15 +3,17 @@
 package instance
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	awscommon "github.com/hashicorp/packer/builder/amazon/common"
 	"github.com/hashicorp/packer/common"
+	commonhelper "github.com/hashicorp/packer/helper/common"
 	"github.com/hashicorp/packer/helper/communicator"
 	"github.com/hashicorp/packer/helper/config"
 	"github.com/hashicorp/packer/helper/multistep"
@@ -170,12 +172,14 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	return nil, nil
 }
 
-func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
+func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packer.Artifact, error) {
 	session, err := b.config.Session()
 	if err != nil {
 		return nil, err
 	}
-	ec2conn := ec2.New(session)
+	ec2conn := ec2.New(session, &aws.Config{
+		HTTPClient: commonhelper.HttpClientWithEnvironmentProxy(),
+	})
 
 	// Setup the state bag and initial state for the steps
 	state := new(multistep.BasicStateBag)
@@ -255,10 +259,10 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 			DebugKeyPath: fmt.Sprintf("ec2_%s.pem", b.config.PackerBuildName),
 		},
 		&awscommon.StepSecurityGroup{
-			CommConfig:             &b.config.RunConfig.Comm,
-			SecurityGroupFilter:    b.config.SecurityGroupFilter,
-			SecurityGroupIds:       b.config.SecurityGroupIds,
-			TemporarySGSourceCidrs: b.config.TemporarySGSourceCidrs,
+			CommConfig:            &b.config.RunConfig.Comm,
+			SecurityGroupFilter:   b.config.SecurityGroupFilter,
+			SecurityGroupIds:      b.config.SecurityGroupIds,
+			TemporarySGSourceCidr: b.config.TemporarySGSourceCidr,
 		},
 		instanceStep,
 		&awscommon.StepGetPassword{
@@ -299,7 +303,6 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 		&awscommon.StepAMIRegionCopy{
 			AccessConfig:      &b.config.AccessConfig,
 			Regions:           b.config.AMIRegions,
-			AMIKmsKeyId:       b.config.AMIKmsKeyId,
 			RegionKeyIds:      b.config.AMIRegionKMSKeyIDs,
 			EncryptBootVolume: b.config.AMIEncryptBootVolume,
 			Name:              b.config.AMIName,
@@ -322,7 +325,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 
 	// Run!
 	b.runner = common.NewRunner(steps, b.config.PackerConfig, ui)
-	b.runner.Run(ctx, state)
+	b.runner.Run(state)
 
 	// If there was an error, return that
 	if rawErr, ok := state.GetOk("error"); ok {
@@ -342,4 +345,11 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	}
 
 	return artifact, nil
+}
+
+func (b *Builder) Cancel() {
+	if b.runner != nil {
+		log.Println("Cancelling the step runner...")
+		b.runner.Cancel()
+	}
 }

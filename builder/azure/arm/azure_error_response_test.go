@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	approvaltests "github.com/approvals/go-approval-tests"
+	"github.com/approvals/go-approval-tests"
 	"github.com/hashicorp/packer/common/json"
 )
 

@@ -26,10 +26,8 @@ import (
 	filebuilder "github.com/hashicorp/packer/builder/file"
 	googlecomputebuilder "github.com/hashicorp/packer/builder/googlecompute"
 	hcloudbuilder "github.com/hashicorp/packer/builder/hcloud"
-	hyperonebuilder "github.com/hashicorp/packer/builder/hyperone"
 	hypervisobuilder "github.com/hashicorp/packer/builder/hyperv/iso"
 	hypervvmcxbuilder "github.com/hashicorp/packer/builder/hyperv/vmcx"
-	linodebuilder "github.com/hashicorp/packer/builder/linode"
 	lxcbuilder "github.com/hashicorp/packer/builder/lxc"
 	lxdbuilder "github.com/hashicorp/packer/builder/lxd"
 	ncloudbuilder "github.com/hashicorp/packer/builder/ncloud"
@@ -41,7 +39,6 @@ import (
 	parallelsisobuilder "github.com/hashicorp/packer/builder/parallels/iso"
 	parallelspvmbuilder "github.com/hashicorp/packer/builder/parallels/pvm"
 	profitbricksbuilder "github.com/hashicorp/packer/builder/profitbricks"
-	proxmoxbuilder "github.com/hashicorp/packer/builder/proxmox"
 	qemubuilder "github.com/hashicorp/packer/builder/qemu"
 	scalewaybuilder "github.com/hashicorp/packer/builder/scaleway"
 	tencentcloudcvmbuilder "github.com/hashicorp/packer/builder/tencentcloud/cvm"
@@ -51,7 +48,6 @@ import (
 	virtualboxovfbuilder "github.com/hashicorp/packer/builder/virtualbox/ovf"
 	vmwareisobuilder "github.com/hashicorp/packer/builder/vmware/iso"
 	vmwarevmxbuilder "github.com/hashicorp/packer/builder/vmware/vmx"
-	yandexbuilder "github.com/hashicorp/packer/builder/yandex"
 	alicloudimportpostprocessor "github.com/hashicorp/packer/post-processor/alicloud-import"
 	amazonimportpostprocessor "github.com/hashicorp/packer/post-processor/amazon-import"
 	artificepostprocessor "github.com/hashicorp/packer/post-processor/artifice"
@@ -84,7 +80,6 @@ import (
 	saltmasterlessprovisioner "github.com/hashicorp/packer/provisioner/salt-masterless"
 	shellprovisioner "github.com/hashicorp/packer/provisioner/shell"
 	shelllocalprovisioner "github.com/hashicorp/packer/provisioner/shell-local"
-	sleepprovisioner "github.com/hashicorp/packer/provisioner/sleep"
 	windowsrestartprovisioner "github.com/hashicorp/packer/provisioner/windows-restart"
 	windowsshellprovisioner "github.com/hashicorp/packer/provisioner/windows-shell"
 )
@@ -107,10 +102,8 @@ var Builders = map[string]packer.Builder{
 	"file":                new(filebuilder.Builder),
 	"googlecompute":       new(googlecomputebuilder.Builder),
 	"hcloud":              new(hcloudbuilder.Builder),
-	"hyperone":            new(hyperonebuilder.Builder),
 	"hyperv-iso":          new(hypervisobuilder.Builder),
 	"hyperv-vmcx":         new(hypervvmcxbuilder.Builder),
-	"linode":              new(linodebuilder.Builder),
 	"lxc":                 new(lxcbuilder.Builder),
 	"lxd":                 new(lxdbuilder.Builder),
 	"ncloud":              new(ncloudbuilder.Builder),
@@ -122,7 +115,6 @@ var Builders = map[string]packer.Builder{
 	"parallels-iso":       new(parallelsisobuilder.Builder),
 	"parallels-pvm":       new(parallelspvmbuilder.Builder),
 	"profitbricks":        new(profitbricksbuilder.Builder),
-	"proxmox":             new(proxmoxbuilder.Builder),
 	"qemu":                new(qemubuilder.Builder),
 	"scaleway":            new(scalewaybuilder.Builder),
 	"tencentcloud-cvm":    new(tencentcloudcvmbuilder.Builder),
@@ -132,7 +124,6 @@ var Builders = map[string]packer.Builder{
 	"virtualbox-ovf":      new(virtualboxovfbuilder.Builder),
 	"vmware-iso":          new(vmwareisobuilder.Builder),
 	"vmware-vmx":          new(vmwarevmxbuilder.Builder),
-	"yandex":              new(yandexbuilder.Builder),
 }
 
 var Provisioners = map[string]packer.Provisioner{
@@ -150,7 +141,6 @@ var Provisioners = map[string]packer.Provisioner{
 	"salt-masterless":   new(saltmasterlessprovisioner.Provisioner),
 	"shell":             new(shellprovisioner.Provisioner),
 	"shell-local":       new(shelllocalprovisioner.Provisioner),
-	"sleep":             new(sleepprovisioner.Provisioner),
 	"windows-restart":   new(windowsrestartprovisioner.Provisioner),
 	"windows-shell":     new(windowsshellprovisioner.Provisioner),
 }

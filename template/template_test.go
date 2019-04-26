@@ -19,11 +19,6 @@ func TestTemplateValidate(t *testing.T) {
 		Err  bool
 	}{
 		{
-			"validate-good-prov-timeout.json",
-			false,
-		},
-
-		{
 			"validate-no-builders.json",
 			true,
 		},

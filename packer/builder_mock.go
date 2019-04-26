@@ -1,7 +1,6 @@
 package packer
 
 import (
-	"context"
 	"errors"
 )
 
@@ -17,10 +16,10 @@ type MockBuilder struct {
 	PrepareCalled bool
 	PrepareConfig []interface{}
 	RunCalled     bool
+	RunCache      Cache
 	RunHook       Hook
 	RunUi         Ui
 	CancelCalled  bool
-	RunFn         func(ctx context.Context)
 }
 
 func (tb *MockBuilder) Prepare(config ...interface{}) ([]string, error) {
@@ -29,10 +28,11 @@ func (tb *MockBuilder) Prepare(config ...interface{}) ([]string, error) {
 	return tb.PrepareWarnings, nil
 }
 
-func (tb *MockBuilder) Run(ctx context.Context, ui Ui, h Hook) (Artifact, error) {
+func (tb *MockBuilder) Run(ui Ui, h Hook, c Cache) (Artifact, error) {
 	tb.RunCalled = true
 	tb.RunHook = h
 	tb.RunUi = ui
+	tb.RunCache = c
 
 	if tb.RunErrResult {
 		return nil, errors.New("foo")
@@ -41,12 +41,9 @@ func (tb *MockBuilder) Run(ctx context.Context, ui Ui, h Hook) (Artifact, error)
 	if tb.RunNilResult {
 		return nil, nil
 	}
-	if tb.RunFn != nil {
-		tb.RunFn(ctx)
-	}
 
 	if h != nil {
-		if err := h.Run(ctx, HookProvision, ui, new(MockCommunicator), nil); err != nil {
+		if err := h.Run(HookProvision, ui, new(MockCommunicator), nil); err != nil {
 			return nil, err
 		}
 	}
@@ -54,4 +51,8 @@ func (tb *MockBuilder) Run(ctx context.Context, ui Ui, h Hook) (Artifact, error)
 	return &MockArtifact{
 		IdValue: tb.ArtifactId,
 	}, nil
+}
+
+func (tb *MockBuilder) Cancel() {
+	tb.CancelCalled = true
 }

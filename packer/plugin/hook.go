@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"context"
 	"log"
 
 	"github.com/hashicorp/packer/packer"
@@ -12,13 +11,22 @@ type cmdHook struct {
 	client *Client
 }
 
-func (c *cmdHook) Run(ctx context.Context, name string, ui packer.Ui, comm packer.Communicator, data interface{}) error {
+func (c *cmdHook) Run(name string, ui packer.Ui, comm packer.Communicator, data interface{}) error {
 	defer func() {
 		r := recover()
 		c.checkExit(r, nil)
 	}()
 
-	return c.hook.Run(ctx, name, ui, comm, data)
+	return c.hook.Run(name, ui, comm, data)
+}
+
+func (c *cmdHook) Cancel() {
+	defer func() {
+		r := recover()
+		c.checkExit(r, nil)
+	}()
+
+	c.hook.Cancel()
 }
 
 func (c *cmdHook) checkExit(p interface{}, cb func()) {

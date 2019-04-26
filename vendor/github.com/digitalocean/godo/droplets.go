@@ -60,7 +60,6 @@ type Droplet struct {
 	Kernel           *Kernel       `json:"kernel,omitempty"`
 	Tags             []string      `json:"tags,omitempty"`
 	VolumeIDs        []string      `json:"volume_ids"`
-	VPCUUID          string        `json:"vpc_uuid,omitempty"`
 }
 
 // PublicIPv4 returns the public IPv4 address for the Droplet.
@@ -223,7 +222,6 @@ type DropletCreateRequest struct {
 	UserData          string                `json:"user_data,omitempty"`
 	Volumes           []DropletCreateVolume `json:"volumes,omitempty"`
 	Tags              []string              `json:"tags"`
-	VPCUUID           string                `json:"vpc_uuid,omitempty"`
 }
 
 // DropletMultiCreateRequest is a request to create multiple Droplets.
@@ -239,7 +237,6 @@ type DropletMultiCreateRequest struct {
 	Monitoring        bool                  `json:"monitoring"`
 	UserData          string                `json:"user_data,omitempty"`
 	Tags              []string              `json:"tags"`
-	VPCUUID           string                `json:"vpc_uuid,omitempty"`
 }
 
 func (d DropletCreateRequest) String() string {

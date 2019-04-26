@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/denverdino/aliyungo/ecs"
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
 )
@@ -13,22 +12,27 @@ import (
 type stepRunAlicloudInstance struct {
 }
 
-func (s *stepRunAlicloudInstance) Run(ctx context.Context, state multistep.StateBag) multistep.StepAction {
-	client := state.Get("client").(*ClientWrapper)
+func (s *stepRunAlicloudInstance) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
+	client := state.Get("client").(*ecs.Client)
 	ui := state.Get("ui").(packer.Ui)
-	instance := state.Get("instance").(*ecs.Instance)
+	instance := state.Get("instance").(*ecs.InstanceAttributesType)
 
-	startInstanceRequest := ecs.CreateStartInstanceRequest()
-	startInstanceRequest.InstanceId = instance.InstanceId
-	if _, err := client.StartInstance(startInstanceRequest); err != nil {
-		return halt(state, err, "Error starting instance")
+	err := client.StartInstance(instance.InstanceId)
+	if err != nil {
+		err := fmt.Errorf("Error starting instance: %s", err)
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return multistep.ActionHalt
 	}
 
 	ui.Say(fmt.Sprintf("Starting instance: %s", instance.InstanceId))
 
-	_, err := client.WaitForInstanceStatus(instance.RegionId, instance.InstanceId, InstanceStatusRunning)
+	err = client.WaitForInstance(instance.InstanceId, ecs.Running, ALICLOUD_DEFAULT_TIMEOUT)
 	if err != nil {
-		return halt(state, err, "Timeout waiting for instance to start")
+		err := fmt.Errorf("Timeout waiting for instance to start: %s", err)
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return multistep.ActionHalt
 	}
 
 	return multistep.ActionContinue
@@ -37,36 +41,19 @@ func (s *stepRunAlicloudInstance) Run(ctx context.Context, state multistep.State
 func (s *stepRunAlicloudInstance) Cleanup(state multistep.StateBag) {
 	_, cancelled := state.GetOk(multistep.StateCancelled)
 	_, halted := state.GetOk(multistep.StateHalted)
-
-	if !cancelled && !halted {
-		return
-	}
-
-	ui := state.Get("ui").(packer.Ui)
-	client := state.Get("client").(*ClientWrapper)
-	instance := state.Get("instance").(*ecs.Instance)
-
-	describeInstancesRequest := ecs.CreateDescribeInstancesRequest()
-	describeInstancesRequest.InstanceIds = fmt.Sprintf("[\"%s\"]", instance.InstanceId)
-	instancesResponse, _ := client.DescribeInstances(describeInstancesRequest)
-
-	if len(instancesResponse.Instances.Instance) == 0 {
-		return
-	}
-
-	instanceAttribute := instancesResponse.Instances.Instance[0]
-	if instanceAttribute.Status == InstanceStatusStarting || instanceAttribute.Status == InstanceStatusRunning {
-		stopInstanceRequest := ecs.CreateStopInstanceRequest()
-		stopInstanceRequest.InstanceId = instance.InstanceId
-		stopInstanceRequest.ForceStop = requests.NewBoolean(true)
-		if _, err := client.StopInstance(stopInstanceRequest); err != nil {
-			ui.Say(fmt.Sprintf("Error stopping instance %s, it may still be around %s", instance.InstanceId, err))
-			return
-		}
-
-		_, err := client.WaitForInstanceStatus(instance.RegionId, instance.InstanceId, InstanceStatusStopped)
-		if err != nil {
-			ui.Say(fmt.Sprintf("Error stopping instance %s, it may still be around %s", instance.InstanceId, err))
+	if cancelled || halted {
+		ui := state.Get("ui").(packer.Ui)
+		client := state.Get("client").(*ecs.Client)
+		instance := state.Get("instance").(*ecs.InstanceAttributesType)
+		instanceAttribute, _ := client.DescribeInstanceAttribute(instance.InstanceId)
+		if instanceAttribute.Status == ecs.Starting || instanceAttribute.Status == ecs.Running {
+			if err := client.StopInstance(instance.InstanceId, true); err != nil {
+				ui.Say(fmt.Sprintf("Error stopping instance %s, it may still be around %s", instance.InstanceId, err))
+				return
+			}
+			if err := client.WaitForInstance(instance.InstanceId, ecs.Stopped, ALICLOUD_DEFAULT_TIMEOUT); err != nil {
+				ui.Say(fmt.Sprintf("Error stopping instance %s, it may still be around %s", instance.InstanceId, err))
+			}
 		}
 	}
 }

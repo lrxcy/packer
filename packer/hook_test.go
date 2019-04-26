@@ -1,9 +1,44 @@
 package packer
 
 import (
-	"context"
+	"sync"
 	"testing"
+	"time"
 )
+
+// A helper Hook implementation for testing cancels.
+type CancelHook struct {
+	sync.Mutex
+	cancelCh chan struct{}
+	doneCh   chan struct{}
+
+	Cancelled bool
+}
+
+func (h *CancelHook) Run(string, Ui, Communicator, interface{}) error {
+	h.Lock()
+	h.cancelCh = make(chan struct{})
+	h.doneCh = make(chan struct{})
+	h.Unlock()
+
+	defer close(h.doneCh)
+
+	select {
+	case <-h.cancelCh:
+		h.Cancelled = true
+	case <-time.After(1 * time.Second):
+	}
+
+	return nil
+}
+
+func (h *CancelHook) Cancel() {
+	h.Lock()
+	close(h.cancelCh)
+	h.Unlock()
+
+	<-h.doneCh
+}
 
 func TestDispatchHook_Implements(t *testing.T) {
 	var _ Hook = new(DispatchHook)
@@ -12,7 +47,7 @@ func TestDispatchHook_Implements(t *testing.T) {
 func TestDispatchHook_Run_NoHooks(t *testing.T) {
 	// Just make sure nothing blows up
 	dh := &DispatchHook{}
-	dh.Run(context.Background(), "foo", nil, nil, nil)
+	dh.Run("foo", nil, nil, nil)
 }
 
 func TestDispatchHook_Run(t *testing.T) {
@@ -21,7 +56,7 @@ func TestDispatchHook_Run(t *testing.T) {
 	mapping := make(map[string][]Hook)
 	mapping["foo"] = []Hook{hook}
 	dh := &DispatchHook{Mapping: mapping}
-	dh.Run(context.Background(), "foo", nil, nil, 42)
+	dh.Run("foo", nil, nil, 42)
 
 	if !hook.RunCalled {
 		t.Fatal("should be called")
@@ -34,36 +69,20 @@ func TestDispatchHook_Run(t *testing.T) {
 	}
 }
 
-// A helper Hook implementation for testing cancels.
-// Run will wait indetinitelly until ctx is cancelled.
-type CancelHook struct {
-	cancel func()
-}
-
-func (h *CancelHook) Run(ctx context.Context, _ string, _ Ui, _ Communicator, _ interface{}) error {
-	h.cancel()
-	<-ctx.Done()
-	return ctx.Err()
-}
-
 func TestDispatchHook_cancel(t *testing.T) {
-
-	cancelHook := new(CancelHook)
+	hook := new(CancelHook)
 
 	dh := &DispatchHook{
 		Mapping: map[string][]Hook{
-			"foo": {cancelHook},
+			"foo": {hook},
 		},
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancelHook.cancel = cancel
 
-	errchan := make(chan error)
-	go func() {
-		errchan <- dh.Run(ctx, "foo", nil, nil, 42)
-	}()
+	go dh.Run("foo", nil, nil, 42)
+	time.Sleep(100 * time.Millisecond)
+	dh.Cancel()
 
-	if err := <-errchan; err == nil {
-		t.Fatal("hook should've errored")
+	if !hook.Cancelled {
+		t.Fatal("hook should've cancelled")
 	}
 }
